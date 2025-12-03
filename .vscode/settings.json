@@ -1,0 +1,8 @@
+{
+  "editor.defaultFormatter": "esbenp.prettier-vscode",
+  "editor.guides.bracketPairs": true,
+  "editor.inlineSuggest.showToolbar": "onHover",
+  "files.eol": "\n",
+  "editor.formatOnSave": false,
+  "notebook.defaultFormatter": "esbenp.prettier-vscode" // Auto-format on save
+}
