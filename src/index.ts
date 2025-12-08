@@ -5,7 +5,7 @@ import dotenv = require('dotenv');
 import protectedRoutes = require('./routes/protected');
 import cloudinaryRoutes = require('./routes/cloudinaryRoutes');
 import paymentRoutes = require('./routes/paymentRoutes');
-import {rateLimiter} from './middleware/rateLimiter';
+import {generalRateLimiter, paymentRateLimiter} from './middleware/rateLimiter';
 
 dotenv.config();
 
@@ -35,13 +35,28 @@ const corsOptions = {
 
 app.use(helmet());
 app.use(cors(corsOptions));
-app.use(express.json({limit: '10mb'}));
 
 app.get('/', (_, res) => res.send('Firebase Auth Backend Running!'));
 
-app.use('/api/protected', rateLimiter, protectedRoutes);
-app.use('/api/cloudinary', rateLimiter, cloudinaryRoutes);
-app.use('/api/payment', rateLimiter, paymentRoutes);
+// Apply route-specific body size limits and rate limiters
+app.use(
+  '/api/protected',
+  express.json({limit: '500kb'}),
+  generalRateLimiter,
+  protectedRoutes,
+);
+app.use(
+  '/api/cloudinary',
+  express.json({limit: '5mb'}),
+  generalRateLimiter,
+  cloudinaryRoutes,
+);
+app.use(
+  '/api/payment',
+  express.json({limit: '100kb'}),
+  paymentRateLimiter,
+  paymentRoutes,
+);
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
