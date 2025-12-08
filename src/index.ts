@@ -4,6 +4,7 @@ import helmet from 'helmet';
 import dotenv = require('dotenv');
 import protectedRoutes = require('./routes/protected');
 import cloudinaryRoutes = require('./routes/cloudinaryRoutes');
+import paymentRoutes = require('./routes/paymentRoutes');
 import {rateLimiter} from './middleware/rateLimiter';
 
 dotenv.config();
@@ -40,6 +41,7 @@ app.get('/', (_, res) => res.send('Firebase Auth Backend Running!'));
 
 app.use('/api/protected', rateLimiter, protectedRoutes);
 app.use('/api/cloudinary', rateLimiter, cloudinaryRoutes);
+app.use('/api/payment', rateLimiter, paymentRoutes);
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
