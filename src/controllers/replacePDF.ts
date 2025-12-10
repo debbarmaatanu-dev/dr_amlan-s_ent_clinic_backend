@@ -36,7 +36,8 @@ export const replacePDF = (req: Request, res: Response): void => {
             setTimeout(() => reject(new Error('Delete timeout')), 10000),
           ),
         ]);
-      } catch (_err) {
+      } catch (err) {
+        console.log(err);
         try {
           await Promise.race([
             cloudinary.uploader.destroy(public_id, {resource_type: 'raw'}),
@@ -45,7 +46,7 @@ export const replacePDF = (req: Request, res: Response): void => {
             ),
           ]);
         } catch (_rawErr) {
-          // Continue with upload even if delete fails
+          console.log(_rawErr);
         }
       }
 
