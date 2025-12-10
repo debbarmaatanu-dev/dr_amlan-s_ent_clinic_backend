@@ -11,26 +11,39 @@ dotenv.config();
 
 const app = express();
 
+
+
 const allowedOrigins = [
   process.env.FRONTEND_LOCAL,
   process.env.FRONTEND_VERCEL,
   process.env.FRONTEND_DNS,
   process.env.FRONTEND_ROOT,
-];
+].filter(Boolean); // Remove any undefined values
 
 const corsOptions = {
   origin: (
     origin: string | undefined,
     callback: (err: Error | null, allow?: boolean) => void,
   ) => {
-    if (!origin || allowedOrigins.includes(origin)) {
+    // Block requests with no origin (Postman, mobile apps, etc.)
+    if (!origin) {
+      console.error('[CORS] Blocked request with no origin');
+      callback(new Error('CORS Not Allowed - No Origin'));
+      return;
+    }
+
+    // Check if origin is in allowed list
+    if (allowedOrigins.includes(origin)) {
       callback(null, true);
     } else {
       console.error('[CORS] Unauthorized attempt from:', origin);
+      console.log('[CORS] Allowed origins:', allowedOrigins);
       callback(new Error('CORS Not Allowed'));
     }
   },
   credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
 };
 
 app.use(helmet());
