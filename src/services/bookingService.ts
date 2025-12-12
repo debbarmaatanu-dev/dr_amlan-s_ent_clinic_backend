@@ -79,6 +79,7 @@ export const createPendingBooking = async (
 
 /**
  * Confirm booking after successful payment (using transaction)
+ * Returns slot availability status for auto-refund handling
  */
 export const confirmBooking = async (
   orderId: string,
@@ -91,6 +92,8 @@ export const confirmBooking = async (
     cardId?: string;
   },
 ) => {
+  let pendingData: PendingBooking;
+
   try {
     // Get pending booking
     const pendingBookingRef = db.collection('pending_bookings').doc(orderId);
@@ -100,7 +103,7 @@ export const confirmBooking = async (
       return {success: false, error: 'Pending booking not found'};
     }
 
-    const pendingData = pendingBookingSnap.data() as PendingBooking;
+    pendingData = pendingBookingSnap.data() as PendingBooking;
 
     // Create actual booking using transaction
     const result = await db.runTransaction(async transaction => {
