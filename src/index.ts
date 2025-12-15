@@ -6,6 +6,7 @@ import protectedRoutes = require('./routes/protected');
 import cloudinaryRoutes = require('./routes/cloudinaryRoutes');
 import paymentRoutes = require('./routes/paymentRoutes');
 import appointmentRoutes = require('./routes/appointmentRoutes');
+import webhookRoutes = require('./routes/webhookRoutes');
 import {generalRateLimiter, paymentRateLimiter} from './middleware/rateLimiter';
 import {
   geoLocationBlock,
@@ -88,6 +89,13 @@ app.use(
   express.json({limit: '100kb'}),
   generalRateLimiter,
   appointmentRoutes,
+);
+// Webhook route to match PhonePe dashboard configuration exactly
+app.use(
+  '/payment',
+  validateRequestSize(10), // 10KB max for webhook data
+  express.json({limit: '1mb'}),
+  webhookRoutes,
 );
 
 const PORT = process.env.PORT || 3000;

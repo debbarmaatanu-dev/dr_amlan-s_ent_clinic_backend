@@ -204,6 +204,48 @@ router.post('/create-order', async (req, res) => {
 });
 
 /**
+ * GET /api/payment/webhook-status/:transactionId
+ * Check if webhook has already processed this transaction (faster than API call)
+ */
+router.get('/webhook-status/:transactionId', async (req, res) => {
+  try {
+    const {transactionId} = req.params;
+
+    // Check if webhook already processed this transaction
+    const webhookLogQuery = await db
+      .collection('webhook_logs')
+      .where('transactionId', '==', transactionId)
+      .where('processed', '==', true)
+      .orderBy('timestamp', 'desc')
+      .limit(1)
+      .get();
+
+    if (!webhookLogQuery.empty) {
+      const webhookLog = webhookLogQuery.docs[0].data();
+
+      return res.json({
+        success: true,
+        webhookProcessed: true,
+        eventType: webhookLog.eventType,
+        status: webhookLog.status,
+        timestamp: webhookLog.timestamp,
+      });
+    }
+
+    return res.json({
+      success: true,
+      webhookProcessed: false,
+    });
+  } catch (error) {
+    logger.error('Error checking webhook status:', error);
+    return res.status(500).json({
+      success: false,
+      error: 'Internal server error',
+    });
+  }
+});
+
+/**
  * GET /api/payment/callback (for production mode redirects)
  * Handle PhonePe redirect callback when user returns from payment page
  */
