@@ -2,6 +2,7 @@ import {Request, Response} from 'express';
 import multer = require('multer');
 import streamifier = require('streamifier');
 import cloudinary = require('../services/cloudinary');
+import {logger} from '../utils/logger';
 
 const storage = multer.memoryStorage();
 const upload = multer({storage}).single('file');
@@ -37,7 +38,7 @@ export const replacePDF = (req: Request, res: Response): void => {
           ),
         ]);
       } catch (err) {
-        console.log(err);
+        logger.error(err);
         try {
           await Promise.race([
             cloudinary.uploader.destroy(public_id, {resource_type: 'raw'}),
@@ -46,7 +47,7 @@ export const replacePDF = (req: Request, res: Response): void => {
             ),
           ]);
         } catch (_rawErr) {
-          console.log(_rawErr);
+          logger.error(_rawErr);
         }
       }
 

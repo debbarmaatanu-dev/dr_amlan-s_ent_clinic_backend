@@ -1,23 +1,8 @@
 import admin = require('firebase-admin');
+import type {RefundRecord, RefundBookingData} from '../types/types';
+import {logger} from '../utils/logger';
 
 const db = admin.firestore();
-
-interface RefundRecord {
-  refundId: string;
-  originalTransactionId: string;
-  merchantTransactionId: string;
-  amount: number;
-  reason: string;
-  status: 'initiated' | 'completed' | 'failed';
-  bookingData: {
-    date: string;
-    name: string;
-    phone: string;
-    slotNumber?: number;
-  };
-  createdAt: admin.firestore.FieldValue;
-  completedAt?: admin.firestore.FieldValue;
-}
 
 /**
  * Create refund record for tracking
@@ -28,12 +13,7 @@ export const createRefundRecord = async (
   merchantTransactionId: string,
   amount: number,
   reason: string,
-  bookingData: {
-    date: string;
-    name: string;
-    phone: string;
-    slotNumber?: number;
-  },
+  bookingData: RefundBookingData,
 ) => {
   try {
     const refundRecord: RefundRecord = {
@@ -48,7 +28,7 @@ export const createRefundRecord = async (
     };
 
     await db.collection('refunds').doc(refundId).set(refundRecord);
-    console.log(`Refund record created: ${refundId}`);
+    logger.log(`Refund record created: ${refundId}`);
     return {success: true};
   } catch (error) {
     console.error('Error creating refund record:', error);
@@ -76,7 +56,7 @@ export const updateRefundStatus = async (
     }
 
     await db.collection('refunds').doc(refundId).update(updateData);
-    console.log(`Refund status updated: ${refundId} -> ${status}`);
+    logger.log(`Refund status updated: ${refundId} -> ${status}`);
     return {success: true};
   } catch (error) {
     console.error('Error updating refund status:', error);

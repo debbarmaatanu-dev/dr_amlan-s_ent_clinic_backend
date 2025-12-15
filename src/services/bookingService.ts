@@ -1,38 +1,11 @@
 import admin = require('firebase-admin');
+import type {
+  BookingData,
+  PendingBooking,
+  BookingCreationData,
+} from '../types/types';
 
 const db = admin.firestore();
-
-interface BookingData {
-  slotNumber: number;
-  name: string;
-  gender: string;
-  age: number;
-  phone: string;
-  paymentId: string;
-  orderId: string;
-  amount: number;
-  paymentStatus: string;
-  paymentMethod?: string; // upi, card, netbanking, wallet
-  paymentDetails?: {
-    vpa?: string; // UPI ID
-    bank?: string; // Bank name
-    wallet?: string; // Wallet name
-    cardId?: string; // Card ID
-  };
-  timestamp: string; // ISO timestamp string (cannot use FieldValue in arrays)
-}
-
-interface PendingBooking {
-  orderId: string;
-  date: string;
-  name: string;
-  gender: string;
-  age: number;
-  phone: string;
-  amount: number;
-  status: 'pending' | 'completed' | 'failed';
-  createdAt: admin.firestore.FieldValue;
-}
 
 /**
  * Format date from YYYY-MM-DD to DD-MM-YYYY
@@ -47,14 +20,7 @@ const formatDateToDocId = (dateString: string): string => {
  */
 export const createPendingBooking = async (
   orderId: string,
-  bookingData: {
-    date: string;
-    name: string;
-    gender: string;
-    age: number;
-    phone: string;
-    amount: number;
-  },
+  bookingData: BookingCreationData,
 ) => {
   try {
     const pendingBooking: PendingBooking = {

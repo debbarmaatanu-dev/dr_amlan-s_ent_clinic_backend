@@ -2,20 +2,16 @@ import express = require('express');
 import admin = require('firebase-admin');
 import {
   createPaymentOrder,
-  verifyWebhookSignature,
   checkPaymentStatus,
 } from '../services/phonePeService';
-import {updateRefundStatus} from '../services/refundService';
-import {
-  createPaymentSession,
-  getPaymentSession,
-  deletePaymentSession,
-} from '../services/sessionService';
+
 import {
   createPendingBooking,
   confirmBooking,
   cancelBooking,
 } from '../services/bookingService';
+import {isClinicOpen} from '../services/clinicService';
+import {logger} from '../utils/logger';
 
 const router = express.Router();
 const db = admin.firestore();
@@ -54,7 +50,7 @@ const cleanupOldPendingBookings = async (): Promise<void> => {
     });
 
     await batch.commit();
-    console.log(`Cleaned up ${count} old pending bookings`);
+    logger.log(`Cleaned up ${count} old pending bookings`);
   } catch (error) {
     console.error('Error cleaning up pending bookings:', error);
   }
@@ -62,7 +58,7 @@ const cleanupOldPendingBookings = async (): Promise<void> => {
 
 /**
  * POST /api/payment/create-order
- * Create a Razorpay payment order
+ * Create a PhonePe payment order
  */
 router.post('/create-order', async (req, res) => {
   try {
@@ -124,6 +120,16 @@ router.post('/create-order', async (req, res) => {
     // Cleanup old pending bookings (run on first booking of the day)
     await cleanupOldPendingBookings();
 
+    // Check if clinic is manually closed by admin
+    const clinicStatus = await isClinicOpen();
+    if (!clinicStatus.isOpen) {
+      return res.status(400).json({
+        success: false,
+        error: clinicStatus.reason || 'Clinic bookings are temporarily closed',
+        code: 'CLINIC_CLOSED',
+      });
+    }
+
     // Check slot availability BEFORE creating payment order
     const docId = formatDateToDocId(date);
     const docRef = db.collection('appointment_bookings').doc(docId);
@@ -141,7 +147,7 @@ router.post('/create-order', async (req, res) => {
     }
 
     // Create PhonePe order
-    console.log('Creating PhonePe order for:', {date, name, phone, amount});
+    logger.log('Creating PhonePe order for:', {date, name, phone, amount});
     const orderResult = await createPaymentOrder(amount, {
       date,
       name,
@@ -151,14 +157,14 @@ router.post('/create-order', async (req, res) => {
     });
 
     if (!orderResult.success || !orderResult.order) {
-      console.error('Failed to create Razorpay order:', orderResult.error);
+      console.error('Failed to create PhonePe order:', orderResult.error);
       return res.status(500).json({
         success: false,
         error: orderResult.error || 'Failed to create order',
       });
     }
 
-    console.log('PhonePe order created:', orderResult.order.id);
+    logger.log('PhonePe order created:', orderResult.order.id);
 
     // Create pending booking
     const pendingResult = await createPendingBooking(orderResult.order.id, {
@@ -177,33 +183,16 @@ router.post('/create-order', async (req, res) => {
       });
     }
 
-    // Create secure payment session
-    const sessionResult = await createPaymentSession(orderResult.order.id, {
-      date,
-      name,
-      gender,
-      age,
-      phone,
-    });
-
-    if (!sessionResult.success) {
-      return res.status(500).json({
-        success: false,
-        error: 'Failed to create payment session',
-      });
-    }
-
     // Return order details to frontend (PhonePe redirect URL)
     const response = {
       success: true,
       orderId: orderResult.order.id,
-      sessionId: sessionResult.sessionId, // Secure session ID
       amount: orderResult.order.amount,
       currency: orderResult.order.currency,
       redirectUrl: orderResult.order.redirectUrl, // PhonePe payment page URL
     };
 
-    console.log('Sending response to frontend:', response);
+    logger.log('Sending response to frontend:', response);
     return res.json(response);
   } catch (error) {
     console.error('Error in create-order:', error);
@@ -215,42 +204,26 @@ router.post('/create-order', async (req, res) => {
 });
 
 /**
- * POST /api/payment/callback
- * Handle PhonePe redirect callback (user returns from payment page)
+ * GET /api/payment/callback (for production mode redirects)
+ * Handle PhonePe redirect callback when user returns from payment page
  */
-router.post('/callback', async (req, res) => {
+router.get('/callback', async (req, res) => {
   try {
-    const {transactionId} = req.body;
+    const {transaction_id} = req.query;
 
-    if (!transactionId) {
+    if (!transaction_id) {
       return res.redirect(
         `${process.env.FRONTEND_DNS}/appointment?payment=failed&error=missing_transaction_id`,
       );
     }
 
-    // Check payment status with PhonePe
-    const statusResult = await checkPaymentStatus(transactionId);
+    logger.log('Payment callback received for transaction:', transaction_id);
 
-    if (!statusResult.success) {
-      return res.redirect(
-        `${process.env.FRONTEND_DNS}/appointment?payment=failed&error=status_check_failed`,
-      );
-    }
-
-    const paymentStatus = statusResult.payment?.status;
-
-    if (paymentStatus === 'SUCCESS') {
-      // Payment successful - redirect to success page
-      return res.redirect(
-        `${process.env.FRONTEND_DNS}/appointment?payment=success&transaction_id=${transactionId}`,
-      );
-    } else {
-      // Payment failed - mark booking as failed
-      await cancelBooking(transactionId);
-      return res.redirect(
-        `${process.env.FRONTEND_DNS}/appointment?payment=failed&error=payment_unsuccessful`,
-      );
-    }
+    // In production mode, PhonePe redirects here after payment
+    // We'll redirect back to frontend with transaction ID so it can check status
+    return res.redirect(
+      `${process.env.FRONTEND_DNS}/appointment?payment=callback&transaction_id=${transaction_id}`,
+    );
   } catch (error) {
     console.error('Error in payment callback:', error);
     return res.redirect(
@@ -259,24 +232,30 @@ router.post('/callback', async (req, res) => {
   }
 });
 
-/**
- * GET /api/payment/status/:sessionId
- * Check payment status using secure session ID
- */
-router.get('/status/:sessionId', async (req, res) => {
-  try {
-    const {sessionId} = req.params;
+export = router;
 
-    // Get session data
-    const sessionResult = await getPaymentSession(sessionId);
-    if (!sessionResult.success || !sessionResult.session) {
+/**
+ * GET /api/payment/status-by-transaction/:transactionId
+ * Check payment status by transaction ID (works for both test and production)
+ */
+router.get('/status-by-transaction/:transactionId', async (req, res) => {
+  try {
+    const {transactionId} = req.params;
+
+    // Get pending booking data
+    const pendingBookingRef = db
+      .collection('pending_bookings')
+      .doc(transactionId);
+    const pendingBookingSnap = await pendingBookingRef.get();
+
+    if (!pendingBookingSnap.exists) {
       return res.json({
         success: false,
-        error: 'Invalid or expired session',
+        error: 'Transaction not found',
       });
     }
 
-    const {transactionId, bookingData} = sessionResult.session;
+    const pendingData = pendingBookingSnap.data();
 
     // Check payment status with PhonePe
     const statusResult = await checkPaymentStatus(transactionId);
@@ -291,7 +270,98 @@ router.get('/status/:sessionId', async (req, res) => {
     const paymentStatus = statusResult.payment?.status;
 
     if (paymentStatus === 'SUCCESS') {
-      // Confirm booking
+      // CRITICAL: Check if clinic was closed after payment but before booking confirmation
+      const clinicStatus = await isClinicOpen();
+      if (!clinicStatus.isOpen) {
+        logger.log(
+          `[REFUND-TRIGGER] Payment successful but clinic closed during process. Transaction: ${transactionId}`,
+        );
+
+        // Initiate automatic refund
+        try {
+          const {initiateRefund} = await import('../services/phonePeService');
+          const refundResult = await initiateRefund(
+            transactionId,
+            statusResult.payment?.amount || 40000, // Amount in paise
+            'Clinic closed during payment process - automatic refund',
+          );
+
+          if (refundResult.success) {
+            logger.log(
+              `[AUTO-REFUND] Refund initiated for ${transactionId}: ${refundResult.refund?.refundId}`,
+            );
+
+            // Store refund record
+            const {createRefundRecord} =
+              await import('../services/refundService');
+            await createRefundRecord(
+              refundResult.refund?.refundId || `auto_${transactionId}`,
+              transactionId,
+              transactionId,
+              statusResult.payment?.amount || 40000,
+              'Clinic closed during payment process - automatic refund',
+              {
+                date: pendingData?.date || 'unknown',
+                name: pendingData?.name || 'unknown',
+                phone: pendingData?.phone || 'unknown',
+              },
+            );
+
+            // Delete pending booking
+            await db.collection('pending_bookings').doc(transactionId).delete();
+
+            return res.json({
+              success: false,
+              status: 'REFUNDED',
+              error:
+                'Clinic bookings were closed during your payment. A refund has been automatically initiated and will be processed within 5-7 business days.',
+              refundId: refundResult.refund?.refundId,
+            });
+          } else {
+            console.error(
+              `[AUTO-REFUND-FAILED] Could not initiate refund for ${transactionId}:`,
+              refundResult.error,
+            );
+
+            // Store failed refund attempt for manual processing
+            await db
+              .collection('failed_refunds')
+              .doc(transactionId)
+              .set({
+                transactionId,
+                amount: statusResult.payment?.amount || 40000,
+                reason: 'Clinic closed during payment - auto refund failed',
+                error: refundResult.error,
+                pendingData,
+                createdAt: admin.firestore.FieldValue.serverTimestamp(),
+                status: 'manual_required',
+              });
+
+            return res.json({
+              success: false,
+              status: 'REFUND_PENDING',
+              error:
+                'Clinic bookings were closed during your payment. Please contact us for a refund - your transaction ID is: ' +
+                transactionId,
+            });
+          }
+        } catch (refundError) {
+          console.error(
+            `[AUTO-REFUND-ERROR] Error processing refund for ${transactionId}:`,
+            refundError,
+          );
+
+          return res.json({
+            success: false,
+            status: 'REFUND_ERROR',
+            error:
+              'Clinic bookings were closed during your payment. Please contact us immediately with transaction ID: ' +
+              transactionId,
+          });
+        }
+      }
+
+      // Clinic is open, proceed with normal booking confirmation
       const bookingResult = await confirmBooking(
         transactionId,
         statusResult.payment?.transactionId || transactionId,
@@ -307,13 +377,12 @@ router.get('/status/:sessionId', async (req, res) => {
         });
       }
 
-      // Delete pending booking and session after successful confirmation
+      // Delete pending booking after successful confirmation
       try {
         await db.collection('pending_bookings').doc(transactionId).delete();
-        await deletePaymentSession(sessionId);
-        console.log(`Deleted pending booking and session: ${transactionId}`);
+        logger.log(`Deleted pending booking: ${transactionId}`);
       } catch (error) {
-        console.error('Error deleting pending booking/session:', error);
+        console.error('Error deleting pending booking:', error);
       }
 
       return res.json({
@@ -322,7 +391,7 @@ router.get('/status/:sessionId', async (req, res) => {
         slotNumber: bookingResult.slotNumber,
         date: bookingResult.date,
         name: bookingResult.name,
-        bookingData: bookingData, // Return booking data from session
+        bookingData: pendingData, // Return original booking data
         message: 'Booking confirmed successfully',
       });
     } else if (paymentStatus === 'FAILED') {
@@ -340,136 +409,10 @@ router.get('/status/:sessionId', async (req, res) => {
       });
     }
   } catch (error) {
-    console.error('Error checking payment status:', error);
+    console.error('Error checking payment status by transaction:', error);
     return res.status(500).json({
       success: false,
       error: 'Internal server error',
     });
   }
-});
-
-export = router;
-
-/**
- * POST /api/payment/webhook
- * Handle PhonePe webhook notifications
- */
-router.post('/webhook', async (req, res) => {
-  try {
-    const xVerify = req.headers['x-verify'] as string;
-    const requestBody = JSON.stringify(req.body);
-
-    // Verify webhook signature
-    if (!verifyWebhookSignature(requestBody, xVerify)) {
-      console.error('Invalid webhook signature');
-      return res.status(400).json({error: 'Invalid signature'});
-    }
-
-    const {transactionId, code} = req.body;
-
-    console.log('PhonePe webhook received:', {transactionId, code});
-
-    // Handle different webhook events
-    if (code === 'PAYMENT_SUCCESS') {
-      console.log(`Payment successful: ${transactionId}`);
-      // Payment confirmation is handled by status polling from frontend
-      // This webhook is mainly for logging and backup verification
-    } else if (code === 'PAYMENT_FAILED') {
-      console.log(`Payment failed: ${transactionId}`);
-      await cancelBooking(transactionId);
-    }
-
-    // Always respond with success to PhonePe
-    return res.json({success: true});
-  } catch (error) {
-    console.error('Error in webhook handler:', error);
-    return res.status(500).json({error: 'Webhook processing failed'});
-  }
-});
-
-/**
- * POST /api/payment/refund-webhook
- * Handle PhonePe refund webhook notifications
- */
-router.post('/refund-webhook', async (req, res) => {
-  try {
-    const xVerify = req.headers['x-verify'] as string;
-    const requestBody = JSON.stringify(req.body);
-
-    // Verify webhook signature
-    if (!verifyWebhookSignature(requestBody, xVerify)) {
-      console.error('Invalid refund webhook signature');
-      return res.status(400).json({error: 'Invalid signature'});
-    }
-
-    const {transactionId, code} = req.body;
-
-    console.log('PhonePe refund webhook received:', {transactionId, code});
-
-    // Update refund status based on webhook
-    if (code === 'REFUND_SUCCESS') {
-      await updateRefundStatus(transactionId, 'completed');
-      console.log(`Refund completed: ${transactionId}`);
-    } else if (code === 'REFUND_FAILED') {
-      await updateRefundStatus(transactionId, 'failed');
-      console.log(`Refund failed: ${transactionId}`);
-    }
-
-    return res.json({success: true});
-  } catch (error) {
-    console.error('Error in refund webhook handler:', error);
-    return res.status(500).json({error: 'Refund webhook processing failed'});
-  }
-});
-
-/**
- * GET /api/payment/test-payment
- * Mock PhonePe payment page for testing
- */
-router.get('/test-payment', async (req, res) => {
-  const {transaction_id} = req.query;
-
-  const html = `
-    <!DOCTYPE html>
-    <html>
-    <head>
-      <title>Mock PhonePe Payment</title>
-      <style>
-        body { font-family: Arial, sans-serif; text-align: center; padding: 50px; }
-        .container { max-width: 400px; margin: 0 auto; }
-        button { padding: 15px 30px; margin: 10px; font-size: 16px; cursor: pointer; }
-        .success { background: #4CAF50; color: white; border: none; }
-        .failure { background: #f44336; color: white; border: none; }
-      </style>
-    </head>
-    <body>
-      <div class="container">
-        <h2>Mock PhonePe Payment</h2>
-        <p>Transaction ID: ${transaction_id}</p>
-        <p>Amount: ₹400</p>
-        <p>Choose payment result:</p>
-        
-        <button class="success" onclick="simulateSuccess()">
-          ✅ Simulate Success
-        </button>
-        
-        <button class="failure" onclick="simulateFailure()">
-          ❌ Simulate Failure
-        </button>
-      </div>
-      
-      <script>
-        function simulateSuccess() {
-          window.location.href = '${process.env.FRONTEND_DNS}/appointment?payment=success&transaction_id=${transaction_id}';
-        }
-        
-        function simulateFailure() {
-          window.location.href = '${process.env.FRONTEND_DNS}/appointment?payment=failed&error=payment_unsuccessful';
-        }
-      </script>
-    </body>
-    </html>
-  `;
-
-  res.send(html);
 });

@@ -1,33 +1,14 @@
 import admin = require('firebase-admin');
+import type {PaymentSession, PaymentOrderData} from '../types/types';
 
 const db = admin.firestore();
-
-interface PaymentSession {
-  sessionId: string;
-  transactionId: string;
-  bookingData: {
-    date: string;
-    name: string;
-    gender: string;
-    age: number;
-    phone: string;
-  };
-  createdAt: admin.firestore.FieldValue;
-  expiresAt: Date;
-}
 
 /**
  * Create secure payment session
  */
 export const createPaymentSession = async (
   transactionId: string,
-  bookingData: {
-    date: string;
-    name: string;
-    gender: string;
-    age: number;
-    phone: string;
-  },
+  bookingData: PaymentOrderData,
 ) => {
   try {
     const sessionId = `session_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;

@@ -3,7 +3,7 @@ import rateLimit from 'express-rate-limit';
 // General rate limiter for protected and cloudinary routes
 export const generalRateLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 100, // 100 requests per window
+  max: 50, // 50 requests per window (reduced from 100)
   message: 'Too many requests from this IP, please try again later.',
   standardHeaders: true,
   legacyHeaders: false,
@@ -12,7 +12,7 @@ export const generalRateLimiter = rateLimit({
 // Stricter rate limiter for payment routes
 export const paymentRateLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 20, // 20 requests per window (stricter for payments)
+  max: 10, // 10 requests per window (reduced from 20)
   message: 'Too many payment requests from this IP, please try again later.',
   standardHeaders: true,
   legacyHeaders: false,
