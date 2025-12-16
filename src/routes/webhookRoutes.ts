@@ -3,11 +3,21 @@ import admin = require('firebase-admin');
 import {logger} from '../utils/logger';
 import {confirmBooking, cancelBooking} from '../services/bookingService';
 
+// Extend Express Request type for PhonePe auth data
+declare module 'express-serve-static-core' {
+  interface Request {
+    phonepeAuth?: {
+      authorization: string;
+      responseBody: string;
+    };
+  }
+}
+
 const router = express.Router();
 const db = admin.firestore();
 
 /**
- * PhonePe Webhook Authentication Middleware
+ * PhonePe Webhook Authentication Middleware (SDK-based)
  */
 const authenticateWebhook = (
   req: express.Request,
@@ -19,50 +29,27 @@ const authenticateWebhook = (
   logger.log('[WEBHOOK-DEBUG] Headers:', JSON.stringify(req.headers));
   logger.log('[WEBHOOK-DEBUG] Method:', req.method);
   logger.log('[WEBHOOK-DEBUG] URL:', req.url);
+  logger.log('[WEBHOOK-DEBUG] Body:', JSON.stringify(req.body));
 
-  const authHeader = req.headers.authorization;
+  // PhonePe sends authorization header (not Basic Auth)
+  const authorizationHeader = req.headers.authorization;
 
-  if (!authHeader || !authHeader.startsWith('Basic ')) {
-    logger.error('[WEBHOOK] Missing or invalid authorization header');
-    logger.error('[WEBHOOK] Received auth header:', authHeader);
-    res.status(401).json({error: 'Unauthorized'});
+  if (!authorizationHeader) {
+    logger.error('[WEBHOOK] Missing authorization header');
+    res.status(401).json({error: 'Missing authorization header'});
     return;
   }
 
   try {
-    const base64Credentials = authHeader.split(' ')[1];
-    const credentials = Buffer.from(base64Credentials, 'base64').toString(
-      'ascii',
+    // Store for validation in the main webhook handler
+    req.phonepeAuth = {
+      authorization: authorizationHeader,
+      responseBody: JSON.stringify(req.body),
+    };
+
+    logger.log(
+      '[WEBHOOK] Authorization header received, proceeding to validation',
     );
-    const [username, password] = credentials.split(':');
-
-    // Verify webhook credentials from environment variables
-    const expectedUsername = process.env.PHONEPE_WEBHOOK_USERNAME;
-    const expectedPassword = process.env.PHONEPE_WEBHOOK_PASSWORD;
-
-    logger.log('[WEBHOOK-DEBUG] Expected username:', expectedUsername);
-    logger.log('[WEBHOOK-DEBUG] Received username:', username);
-
-    if (!expectedUsername || !expectedPassword) {
-      logger.error(
-        '[WEBHOOK] Webhook credentials not configured in environment',
-      );
-      res.status(500).json({error: 'Server configuration error'});
-      return;
-    }
-
-    if (username !== expectedUsername || password !== expectedPassword) {
-      logger.error('[WEBHOOK] Invalid webhook credentials');
-      logger.error(
-        '[WEBHOOK] Expected:',
-        expectedUsername + ':' + expectedPassword,
-      );
-      logger.error('[WEBHOOK] Received:', username + ':' + password);
-      res.status(401).json({error: 'Invalid credentials'});
-      return;
-    }
-
-    logger.log('[WEBHOOK] Authentication successful');
     next();
   } catch (error) {
     logger.error('[WEBHOOK] Error parsing credentials:', error);
@@ -107,17 +94,61 @@ const cleanupOldWebhookLogs = async (): Promise<void> => {
  */
 router.post('/webhook', authenticateWebhook, async (req, res) => {
   try {
+    // Import PhonePe client for webhook validation
+    const {phonePeClient} = require('../services/phonePeService');
+
+    // Get auth data from middleware
+    const authData = req.phonepeAuth;
     const webhookData = req.body;
 
-    // Log webhook (but mask sensitive data in production)
-    const isProduction = process.env.NODE_ENV === 'production';
-    if (isProduction) {
-      logger.log(
-        '[WEBHOOK] Received webhook for transaction:',
-        webhookData.transactionId || webhookData.merchantTransactionId,
+    if (!authData) {
+      logger.error('[WEBHOOK] Missing auth data from middleware');
+      return res.status(401).json({error: 'Missing authentication data'});
+    }
+
+    logger.log('[WEBHOOK] Validating webhook with PhonePe SDK');
+
+    // Validate webhook using PhonePe SDK
+    try {
+      const callbackResponse = phonePeClient.validateCallback(
+        process.env.PHONEPE_WEBHOOK_USERNAME!,
+        process.env.PHONEPE_WEBHOOK_PASSWORD!,
+        authData.authorization,
+        authData.responseBody,
       );
-    } else {
-      logger.log('[WEBHOOK] Received webhook:', JSON.stringify(webhookData));
+
+      logger.log('[WEBHOOK] SDK validation successful');
+      logger.log('[WEBHOOK] Callback type:', callbackResponse.type);
+      logger.log(
+        '[WEBHOOK] Payload:',
+        JSON.stringify(callbackResponse.payload),
+      );
+
+      // Use validated data from SDK
+      const validatedData = callbackResponse.payload;
+
+      // Log webhook (but mask sensitive data in production)
+      const isProduction = process.env.NODE_ENV === 'production';
+      if (isProduction) {
+        logger.log(
+          '[WEBHOOK] Received webhook for transaction:',
+          validatedData.originalMerchantOrderId || validatedData.orderId,
+        );
+      } else {
+        logger.log(
+          '[WEBHOOK] Received webhook:',
+          JSON.stringify(validatedData),
+        );
+      }
+
+      // Update webhookData to use validated data
+      Object.assign(webhookData, {
+        type: callbackResponse.type,
+        ...validatedData,
+      });
+    } catch (validationError) {
+      logger.error('[WEBHOOK] SDK validation failed:', validationError);
+      return res.status(401).json({error: 'Invalid webhook signature'});
     }
 
     // Run cleanup occasionally (every 100th webhook to avoid overhead)
@@ -128,11 +159,11 @@ router.post('/webhook', authenticateWebhook, async (req, res) => {
       );
     }
 
-    // Extract event type and transaction data
-    const eventType = webhookData.event || webhookData.type;
+    // Extract event type and transaction data (PhonePe SDK format)
+    const eventType = webhookData.type; // SDK provides this
     const transactionId =
-      webhookData.transactionId || webhookData.merchantTransactionId;
-    const status = webhookData.status || webhookData.state;
+      webhookData.originalMerchantOrderId || webhookData.orderId;
+    const status = webhookData.state;
 
     if (!eventType || !transactionId) {
       logger.error('[WEBHOOK] Missing required fields:', {
@@ -161,6 +192,7 @@ router.post('/webhook', authenticateWebhook, async (req, res) => {
     }
 
     // Log webhook event for debugging and tracking (minimal data for free plan)
+    const isProduction = process.env.NODE_ENV === 'production';
     const webhookLogRef = await db.collection('webhook_logs').add({
       eventType,
       transactionId,
@@ -180,22 +212,22 @@ router.post('/webhook', authenticateWebhook, async (req, res) => {
           }),
     });
 
-    // Handle different webhook events
+    // Handle different webhook events (PhonePe SDK format)
     switch (eventType) {
-      case 'pg.order.completed':
-      case 'paylink.order.completed':
+      case 'CHECKOUT_ORDER_COMPLETED':
         await handlePaymentSuccess(transactionId, webhookData);
         break;
 
-      case 'pg.order.failed':
+      case 'CHECKOUT_ORDER_FAILED':
         await handlePaymentFailure(transactionId, webhookData);
         break;
 
-      case 'pg.refund.completed':
+      case 'PG_REFUND_COMPLETED':
         await handleRefundCompleted(transactionId, webhookData);
         break;
 
-      case 'pg.refund.failed':
+      case 'PG_REFUND_FAILED':
+      case 'PG_REFUND_ACCEPTED':
         await handleRefundFailed(transactionId, webhookData);
         break;
 
