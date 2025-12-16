@@ -14,10 +14,17 @@ const authenticateWebhook = (
   res: express.Response,
   next: express.NextFunction,
 ): void => {
+  // Log all webhook attempts for debugging
+  logger.log('[WEBHOOK-DEBUG] Webhook attempt received');
+  logger.log('[WEBHOOK-DEBUG] Headers:', JSON.stringify(req.headers));
+  logger.log('[WEBHOOK-DEBUG] Method:', req.method);
+  logger.log('[WEBHOOK-DEBUG] URL:', req.url);
+
   const authHeader = req.headers.authorization;
 
   if (!authHeader || !authHeader.startsWith('Basic ')) {
     logger.error('[WEBHOOK] Missing or invalid authorization header');
+    logger.error('[WEBHOOK] Received auth header:', authHeader);
     res.status(401).json({error: 'Unauthorized'});
     return;
   }
@@ -33,6 +40,9 @@ const authenticateWebhook = (
     const expectedUsername = process.env.PHONEPE_WEBHOOK_USERNAME;
     const expectedPassword = process.env.PHONEPE_WEBHOOK_PASSWORD;
 
+    logger.log('[WEBHOOK-DEBUG] Expected username:', expectedUsername);
+    logger.log('[WEBHOOK-DEBUG] Received username:', username);
+
     if (!expectedUsername || !expectedPassword) {
       logger.error(
         '[WEBHOOK] Webhook credentials not configured in environment',
@@ -43,10 +53,16 @@ const authenticateWebhook = (
 
     if (username !== expectedUsername || password !== expectedPassword) {
       logger.error('[WEBHOOK] Invalid webhook credentials');
+      logger.error(
+        '[WEBHOOK] Expected:',
+        expectedUsername + ':' + expectedPassword,
+      );
+      logger.error('[WEBHOOK] Received:', username + ':' + password);
       res.status(401).json({error: 'Invalid credentials'});
       return;
     }
 
+    logger.log('[WEBHOOK] Authentication successful');
     next();
   } catch (error) {
     logger.error('[WEBHOOK] Error parsing credentials:', error);
@@ -350,5 +366,21 @@ async function handleRefundFailed(transactionId: string, webhookData: unknown) {
     );
   }
 }
+
+/**
+ * Test endpoint to verify webhook URL is reachable
+ * GET /payment/webhook-test
+ */
+router.get('/webhook-test', (req, res) => {
+  logger.log('[WEBHOOK-TEST] Test endpoint accessed');
+  logger.log('[WEBHOOK-TEST] Headers:', JSON.stringify(req.headers));
+  res.json({
+    success: true,
+    message: 'Webhook endpoint is reachable',
+    timestamp: new Date().toISOString(),
+    url: req.url,
+    method: req.method,
+  });
+});
 
 export = router;
