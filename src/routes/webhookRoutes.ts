@@ -402,6 +402,7 @@ async function handleRefundFailed(transactionId: string, webhookData: unknown) {
 /**
  * Test endpoint to verify webhook URL is reachable
  * GET /payment/webhook-test
+ * Note: This endpoint bypasses CORS for testing purposes
  */
 router.get('/webhook-test', (req, res) => {
   logger.log('[WEBHOOK-TEST] Test endpoint accessed');

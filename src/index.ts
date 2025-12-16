@@ -30,7 +30,16 @@ const corsOptions = {
   origin: (
     origin: string | undefined,
     callback: (err: Error | null, allow?: boolean) => void,
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    req?: any,
   ) => {
+    // Allow webhook test endpoint for direct browser testing (temporary)
+    if (req && req.url === '/payment/webhook-test') {
+      logger.log('[CORS] Allowing webhook test endpoint');
+      callback(null, true);
+      return;
+    }
+
     // Strict origin checking - no requests without origin allowed
     if (!origin) {
       logger.log('[CORS] Rejecting request with no origin');

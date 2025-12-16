@@ -8,10 +8,7 @@ export const generalRateLimiter = rateLimit({
   message: 'Too many requests from this IP, please try again later.',
   standardHeaders: true,
   legacyHeaders: false,
-  // Custom key generator for serverless environment
-  keyGenerator: req => {
-    return req.ip || req.socket.remoteAddress || 'unknown';
-  },
+  // Use default key generator to avoid IPv6 issues
 });
 
 // Payment route protection (most critical)
@@ -21,8 +18,5 @@ export const paymentRateLimiter = rateLimit({
   message: 'Too many payment requests from this IP, please try again later.',
   standardHeaders: true,
   legacyHeaders: false,
-  // Custom key generator for serverless environment
-  keyGenerator: req => {
-    return req.ip || req.socket.remoteAddress || 'unknown';
-  },
+  // Use default key generator to avoid IPv6 issues
 });
