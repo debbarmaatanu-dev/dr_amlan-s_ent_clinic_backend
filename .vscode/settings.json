@@ -3,6 +3,6 @@
   "editor.guides.bracketPairs": true,
   "editor.inlineSuggest.showToolbar": "onHover",
   "files.eol": "\n",
-  "editor.formatOnSave": false,
+  "editor.formatOnSave": true,
   "notebook.defaultFormatter": "esbenp.prettier-vscode" // Auto-format on save
 }
