@@ -18,8 +18,9 @@ if (!admin.apps.length) {
           process.env.FIREBASE_PRIVATE_KEY_BASE64,
           'base64',
         ).toString('utf8');
-      } catch (e) {
-        throw new Error('Failed to decode base64 private key');
+      } catch (e: unknown) {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        throw new Error('Failed to decode base64 private key', e as any);
       }
     } else if (privateKey) {
       // Fallback to regular processing for local development
