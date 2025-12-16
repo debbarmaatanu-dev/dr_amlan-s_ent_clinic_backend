@@ -52,14 +52,32 @@ const corsOptions = {
   allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
 };
 
-app.use(helmet());
+app.use(
+  helmet({
+    contentSecurityPolicy: false, // Disable CSP for API-only backend
+    hsts: {
+      maxAge: 31536000,
+      includeSubDomains: true,
+      preload: true,
+    },
+  }),
+);
 app.use(cors(corsOptions));
 
 // Apply global security middlewares
 app.use(securityLogger);
 app.use(geoLocationBlock);
 
-app.get('/', (_, res) => res.send('Firebase Auth Backend Running!'));
+app.get('/', (_, res) => res.send('Firebase Auth Backend Running on Vercel!'));
+
+// Health check endpoint for Vercel
+app.get('/health', (_, res) => {
+  res.json({
+    status: 'healthy',
+    timestamp: new Date().toISOString(),
+    environment: process.env.NODE_ENV || 'development',
+  });
+});
 
 // Apply route-specific body size limits and rate limiters
 app.use(
@@ -98,7 +116,10 @@ app.use(
   webhookRoutes,
 );
 
-const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => logger.log(`Server running on port ${PORT}`));
+// For Vercel serverless deployment
+if (process.env.NODE_ENV !== 'production') {
+  const PORT = process.env.PORT || 3000;
+  app.listen(PORT, () => logger.log(`Server running on port ${PORT}`));
+}
 
 export = app;

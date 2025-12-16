@@ -117,7 +117,7 @@ router.post('/create-order', async (req, res) => {
       });
     }
 
-    // Cleanup old pending bookings (run on first booking of the day)
+    // Cleanup old pending bookings (run occasionally)
     await cleanupOldPendingBookings();
 
     // Check if clinic is manually closed by admin
