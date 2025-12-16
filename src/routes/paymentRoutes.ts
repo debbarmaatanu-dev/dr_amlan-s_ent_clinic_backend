@@ -211,12 +211,11 @@ router.get('/webhook-status/:transactionId', async (req, res) => {
   try {
     const {transactionId} = req.params;
 
-    // Check if webhook already processed this transaction
+    // Check if webhook already processed this transaction (simplified query)
     const webhookLogQuery = await db
       .collection('webhook_logs')
       .where('transactionId', '==', transactionId)
       .where('processed', '==', true)
-      .orderBy('timestamp', 'desc')
       .limit(1)
       .get();
 
