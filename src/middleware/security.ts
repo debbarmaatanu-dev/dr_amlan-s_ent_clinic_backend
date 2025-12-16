@@ -11,6 +11,9 @@ export const geoLocationBlock = (
   next: NextFunction,
 ): void => {
   try {
+    // Check Vercel geolocation header
+    const vercelCountry = req.headers['x-vercel-ip-country'] as string;
+
     // Check Cloudflare country header (if using Cloudflare)
     const cfCountry = req.headers['cf-ipcountry'] as string;
 
@@ -18,8 +21,8 @@ export const geoLocationBlock = (
     const xCountry = req.headers['x-country-code'] as string;
     const xRealCountry = req.headers['x-real-country'] as string;
 
-    // Get country from any available header
-    const country = cfCountry || xCountry || xRealCountry;
+    // Get country from any available header (Vercel first)
+    const country = vercelCountry || cfCountry || xCountry || xRealCountry;
 
     // If country is detected and it's not India, block the request
     if (country && country.toUpperCase() !== 'IN') {
