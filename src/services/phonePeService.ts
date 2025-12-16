@@ -58,7 +58,7 @@ export const createPaymentOrder = async (
       .redirectUrl(redirectUrl)
       .message(`ENT Appointment - ${bookingData.name} - ${bookingData.date}`) // Add descriptive message
       .metaInfo(metaInfo) // Add custom fields via MetaInfo
-      .expireAfter(15) // 15 minutes expiry
+      .expireAfter(900) // 15 minutes expiry (900 seconds)
       .build();
 
     // Call PhonePe SDK - it handles test vs production automatically
