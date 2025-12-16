@@ -52,6 +52,9 @@ const corsOptions = {
   allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
 };
 
+// Configure Express to trust Vercel's proxy
+app.set('trust proxy', 1);
+
 app.use(
   helmet({
     contentSecurityPolicy: false, // Disable CSP for API-only backend
