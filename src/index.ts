@@ -122,4 +122,4 @@ if (process.env.NODE_ENV !== 'production') {
   app.listen(PORT, () => logger.log(`Server running on port ${PORT}`));
 }
 
-export = app;
+export default app;
