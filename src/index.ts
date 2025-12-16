@@ -73,15 +73,17 @@ app.get('/', (_, res) => {
     res.send('Firebase Auth Backend Running on Vercel!');
   } catch (error) {
     console.error('Root endpoint error:', error);
-    res.status(500).json({ error: 'Root endpoint failed', details: error.message });
+    res
+      .status(500)
+      .json({error: 'Root endpoint failed', details: (error as Error).message});
   }
 });
 
 app.get('/test', (_, res) => {
-  res.json({ 
+  res.json({
     message: 'Test endpoint working',
     env: process.env.NODE_ENV,
-    hasFirebaseProjectId: !!process.env.FIREBASE_PROJECT_ID
+    hasFirebaseProjectId: !!process.env.FIREBASE_PROJECT_ID,
   });
 });
 
