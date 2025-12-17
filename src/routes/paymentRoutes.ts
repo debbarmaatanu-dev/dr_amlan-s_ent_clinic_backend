@@ -157,7 +157,7 @@ router.post('/create-order', async (req, res) => {
     });
 
     if (!orderResult.success || !orderResult.order) {
-      console.error('Failed to create PhonePe order:', orderResult.error);
+      logger.error('Failed to create PhonePe order:', orderResult.error);
       return res.status(500).json({
         success: false,
         error: orderResult.error || 'Failed to create order',
@@ -195,7 +195,7 @@ router.post('/create-order', async (req, res) => {
     logger.log('Sending response to frontend:', response);
     return res.json(response);
   } catch (error) {
-    console.error('Error in create-order:', error);
+    logger.error('Error in create-order:', error);
     return res.status(500).json({
       success: false,
       error: 'Internal server error',
@@ -266,7 +266,7 @@ router.get('/callback', async (req, res) => {
       `${process.env.FRONTEND_DNS}/appointment?payment=callback&transaction_id=${transaction_id}`,
     );
   } catch (error) {
-    console.error('Error in payment callback:', error);
+    logger.error('Error in payment callback:', error);
     return res.redirect(
       `${process.env.FRONTEND_DNS}/appointment?payment=failed&error=callback_error`,
     );
@@ -359,7 +359,7 @@ router.get('/status-by-transaction/:transactionId', async (req, res) => {
               refundId: refundResult.refund?.refundId,
             });
           } else {
-            console.error(
+            logger.error(
               `[AUTO-REFUND-FAILED] Could not initiate refund for ${transactionId}:`,
               refundResult.error,
             );
@@ -387,7 +387,7 @@ router.get('/status-by-transaction/:transactionId', async (req, res) => {
             });
           }
         } catch (refundError) {
-          console.error(
+          logger.error(
             `[AUTO-REFUND-ERROR] Error processing refund for ${transactionId}:`,
             refundError,
           );
@@ -450,7 +450,7 @@ router.get('/status-by-transaction/:transactionId', async (req, res) => {
       });
     }
   } catch (error) {
-    console.error('Error checking payment status by transaction:', error);
+    logger.error('Error checking payment status by transaction:', error);
     return res.status(500).json({
       success: false,
       error: 'Internal server error',

@@ -1,5 +1,4 @@
 import express = require('express');
-import cors = require('cors');
 import helmet from 'helmet';
 import dotenv = require('dotenv');
 import protectedRoutes = require('./routes/protected');
@@ -26,39 +25,52 @@ const allowedOrigins = [
   process.env.FRONTEND_ROOT,
 ].filter(Boolean); // Remove any undefined values
 
-const corsOptions = {
-  origin: (
-    origin: string | undefined,
-    callback: (err: Error | null, allow?: boolean) => void,
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    req?: any,
-  ) => {
-    // Allow webhook test endpoint for direct browser testing (temporary)
-    if (req && req.url === '/payment/webhook-test') {
-      logger.log('[CORS] Allowing webhook test endpoint');
-      callback(null, true);
-      return;
-    }
+// Custom CORS middleware for better security
+const customCors = (
+  req: express.Request,
+  res: express.Response,
+  next: express.NextFunction,
+) => {
+  const origin = req.headers.origin;
+  const url = req.url || '';
 
-    // Strict origin checking - no requests without origin allowed
-    if (!origin) {
-      logger.log('[CORS] Rejecting request with no origin');
-      callback(new Error('CORS Not Allowed - No Origin'));
+  // Allow requests without origin ONLY for webhook endpoints
+  if (!origin) {
+    if (
+      url.startsWith('/payment/webhook') ||
+      url.startsWith('/webhook-health')
+    ) {
+      logger.log('[CORS] Allowing webhook request with no origin');
+      res.header('Access-Control-Allow-Origin', '*');
+      res.header('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+      res.header(
+        'Access-Control-Allow-Headers',
+        'Content-Type, Authorization, X-Requested-With',
+      );
+      next();
       return;
-    }
-
-    // Check if origin is in allowed list
-    if (allowedOrigins.includes(origin)) {
-      callback(null, true);
     } else {
-      console.error('[CORS] Unauthorized attempt from:', origin);
-      logger.log('[CORS] Allowed origins:', allowedOrigins);
-      callback(new Error('CORS Not Allowed'));
+      logger.log('[CORS] Rejecting non-webhook request with no origin');
+      res.status(403).json({error: 'CORS Not Allowed - No Origin'});
+      return;
     }
-  },
-  credentials: true,
-  methods: ['GET', 'POST', 'OPTIONS'], // Removed PUT, DELETE as not needed
-  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
+  }
+
+  // Check if origin is in allowed list
+  if (allowedOrigins.includes(origin)) {
+    res.header('Access-Control-Allow-Origin', origin);
+    res.header('Access-Control-Allow-Credentials', 'true');
+    res.header('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+    res.header(
+      'Access-Control-Allow-Headers',
+      'Content-Type, Authorization, X-Requested-With',
+    );
+    next();
+  } else {
+    logger.error('[CORS] Unauthorized attempt from:', origin);
+    logger.log('[CORS] Allowed origins:', allowedOrigins);
+    res.status(403).json({error: 'CORS Not Allowed'});
+  }
 };
 
 // Configure Express to trust Vercel's proxy
@@ -74,7 +86,7 @@ app.use(
     },
   }),
 );
-app.use(cors(corsOptions));
+app.use(customCors);
 
 // Apply global security middlewares
 app.use(securityLogger);
@@ -144,6 +156,26 @@ app.use(
   express.json({limit: '1mb'}),
   webhookRoutes,
 );
+
+// Test endpoint for webhook health check (no auth required)
+app.get('/webhook-health', (req, res) => {
+  try {
+    res.json({
+      success: true,
+      message: 'Webhook endpoint is healthy',
+      timestamp: new Date().toISOString(),
+      environment: process.env.NODE_ENV || 'development',
+      phonepeEnv: process.env.PHONEPE_ENV,
+      ip: req.ip,
+    });
+  } catch (error) {
+    logger.error('Health check failed:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Health check failed',
+    });
+  }
+});
 
 // For Vercel serverless deployment
 if (process.env.NODE_ENV !== 'production') {
