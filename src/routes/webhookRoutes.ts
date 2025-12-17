@@ -2,6 +2,7 @@ import express = require('express');
 import admin = require('firebase-admin');
 import {logger} from '../utils/logger';
 import {confirmBooking, cancelBooking} from '../services/bookingService';
+import {CallbackType, CallbackResponse, CallbackData} from 'pg-sdk-node';
 
 // Extend Express Request type for PhonePe auth data
 declare module 'express-serve-static-core' {
@@ -96,8 +97,8 @@ const cleanupOldWebhookLogs = async (): Promise<void> => {
  */
 router.post('/webhook', authenticateWebhook, async (req, res) => {
   try {
-    // Import PhonePe client for webhook validation
-    const {phonePeClient} = require('../services/phonePeService');
+    // Import PhonePe validation function
+    const {validateWebhookCallback} = require('../services/phonePeService');
 
     // Get auth data from middleware
     const authData = req.phonepeAuth;
@@ -111,43 +112,52 @@ router.post('/webhook', authenticateWebhook, async (req, res) => {
     logger.log('[WEBHOOK] Validating webhook with PhonePe SDK');
 
     // Validate webhook using PhonePe SDK
+    let callbackResponse: CallbackResponse | null = null;
+    let validatedData: CallbackData | null = null;
+
     try {
-      const callbackResponse = phonePeClient.validateCallback(
+      callbackResponse = validateWebhookCallback(
         process.env.PHONEPE_WEBHOOK_USERNAME!,
         process.env.PHONEPE_WEBHOOK_PASSWORD!,
         authData.authorization,
         authData.responseBody,
       );
 
-      logger.log('[WEBHOOK] SDK validation successful');
-      logger.log('[WEBHOOK] Callback type:', callbackResponse.type);
-      logger.log(
-        '[WEBHOOK] Payload:',
-        JSON.stringify(callbackResponse.payload),
-      );
-
-      // Use validated data from SDK
-      const validatedData = callbackResponse.payload;
-
-      // Log webhook (but mask sensitive data in production)
-      const isProduction = process.env.NODE_ENV === 'production';
-      if (isProduction) {
+      if (callbackResponse) {
+        logger.log('[WEBHOOK] SDK validation successful');
+        logger.log('[WEBHOOK] Callback type (enum):', callbackResponse.type);
         logger.log(
-          '[WEBHOOK] Received webhook for transaction:',
-          validatedData.originalMerchantOrderId || validatedData.orderId,
+          '[WEBHOOK] Callback type (number):',
+          Number(callbackResponse.type),
         );
-      } else {
         logger.log(
-          '[WEBHOOK] Received webhook:',
-          JSON.stringify(validatedData),
+          '[WEBHOOK] Payload:',
+          JSON.stringify(callbackResponse.payload),
         );
+
+        // Use validated data from SDK
+        validatedData = callbackResponse.payload;
+
+        // Log webhook (but mask sensitive data in production)
+        const isProduction = process.env.NODE_ENV === 'production';
+        if (isProduction) {
+          logger.log(
+            '[WEBHOOK] Received webhook for transaction:',
+            validatedData.originalMerchantOrderId || validatedData.orderId,
+          );
+        } else {
+          logger.log(
+            '[WEBHOOK] Received webhook:',
+            JSON.stringify(validatedData),
+          );
+        }
+
+        // Update webhookData to use validated data with proper typing
+        Object.assign(webhookData, {
+          type: callbackResponse.type, // This is the CallbackType enum number
+          ...validatedData,
+        });
       }
-
-      // Update webhookData to use validated data
-      Object.assign(webhookData, {
-        type: callbackResponse.type,
-        ...validatedData,
-      });
     } catch (validationError) {
       logger.error('[WEBHOOK] SDK validation failed:', validationError);
       logger.error(
@@ -161,8 +171,10 @@ router.post('/webhook', authenticateWebhook, async (req, res) => {
         logger.log(
           '[WEBHOOK] Test mode - proceeding without SDK validation for debugging',
         );
-        // Use raw webhook data in test mode
-        webhookData.type = webhookData.type || 'CHECKOUT_ORDER_COMPLETED';
+        // Use raw webhook data in test mode with fallback type
+        const webhookDataTyped = webhookData as Record<string, unknown>;
+        webhookDataTyped.type =
+          webhookDataTyped.type || CallbackType.CHECKOUT_ORDER_COMPLETED;
       } else {
         return res.status(401).json({error: 'Invalid webhook signature'});
       }
@@ -177,10 +189,14 @@ router.post('/webhook', authenticateWebhook, async (req, res) => {
     }
 
     // Extract event type and transaction data (PhonePe SDK format)
-    const eventType = webhookData.type; // SDK provides this
-    const transactionId =
-      webhookData.originalMerchantOrderId || webhookData.orderId;
-    const status = webhookData.state;
+    const webhookDataTyped = webhookData as Record<string, unknown>;
+    const eventType: CallbackType | string = webhookDataTyped.type as
+      | CallbackType
+      | string; // SDK provides CallbackType enum
+    const transactionId: string =
+      (webhookDataTyped.originalMerchantOrderId as string) ||
+      (webhookDataTyped.orderId as string);
+    const status: string = webhookDataTyped.state as string;
 
     if (!eventType || !transactionId) {
       logger.error('[WEBHOOK] Missing required fields:', {
@@ -229,27 +245,75 @@ router.post('/webhook', authenticateWebhook, async (req, res) => {
           }),
     });
 
-    // Handle different webhook events (PhonePe SDK callback types from documentation)
-    switch (eventType) {
-      case 'CHECKOUT_ORDER_COMPLETED':
-        await handlePaymentSuccess(transactionId, webhookData);
-        break;
+    // Handle different webhook events (PhonePe SDK callback types - ENUM NUMBERS)
+    // SDK returns CallbackType enum numbers, not strings
+    logger.log(
+      `[WEBHOOK] Processing event type: ${eventType} (type: ${typeof eventType}, value: ${Number(eventType)})`,
+    );
 
-      case 'CHECKOUT_ORDER_FAILED':
-        await handlePaymentFailure(transactionId, webhookData);
-        break;
+    // Use numeric comparison for enum values
+    const eventTypeNum = Number(eventType);
 
-      case 'PG_REFUND_COMPLETED':
-        await handleRefundCompleted(transactionId, webhookData);
-        break;
-
-      case 'PG_REFUND_FAILED':
-      case 'PG_REFUND_ACCEPTED':
-        await handleRefundFailed(transactionId, webhookData);
-        break;
-
-      default:
-        logger.log(`[WEBHOOK] Unhandled event type: ${eventType}`);
+    if (
+      eventTypeNum === CallbackType.CHECKOUT_ORDER_COMPLETED ||
+      eventType === 'CHECKOUT_ORDER_COMPLETED'
+    ) {
+      logger.log('[WEBHOOK] Handling CHECKOUT_ORDER_COMPLETED');
+      await handlePaymentSuccess(
+        transactionId,
+        validatedData || webhookDataTyped,
+      );
+    } else if (
+      eventTypeNum === CallbackType.CHECKOUT_ORDER_FAILED ||
+      eventType === 'CHECKOUT_ORDER_FAILED'
+    ) {
+      logger.log('[WEBHOOK] Handling CHECKOUT_ORDER_FAILED');
+      await handlePaymentFailure(
+        transactionId,
+        validatedData || webhookDataTyped,
+      );
+    } else if (eventTypeNum === CallbackType.PG_ORDER_COMPLETED) {
+      logger.log('[WEBHOOK] Handling PG_ORDER_COMPLETED');
+      await handlePaymentSuccess(
+        transactionId,
+        validatedData || webhookDataTyped,
+      );
+    } else if (eventTypeNum === CallbackType.PG_ORDER_FAILED) {
+      logger.log('[WEBHOOK] Handling PG_ORDER_FAILED');
+      await handlePaymentFailure(
+        transactionId,
+        validatedData || webhookDataTyped,
+      );
+    } else if (
+      eventTypeNum === CallbackType.PG_REFUND_COMPLETED ||
+      eventType === 'PG_REFUND_COMPLETED'
+    ) {
+      logger.log('[WEBHOOK] Handling PG_REFUND_COMPLETED');
+      await handleRefundCompleted(
+        transactionId,
+        validatedData || webhookDataTyped,
+      );
+    } else if (
+      eventTypeNum === CallbackType.PG_REFUND_FAILED ||
+      eventTypeNum === CallbackType.PG_REFUND_ACCEPTED ||
+      eventType === 'PG_REFUND_FAILED' ||
+      eventType === 'PG_REFUND_ACCEPTED'
+    ) {
+      logger.log('[WEBHOOK] Handling refund failed/accepted');
+      await handleRefundFailed(
+        transactionId,
+        validatedData || webhookDataTyped,
+      );
+    } else {
+      logger.log(
+        `[WEBHOOK] Unhandled event type: ${eventType} (type: ${typeof eventType}, numeric value: ${eventTypeNum})`,
+      );
+      logger.log('[WEBHOOK] Available CallbackType values:', {
+        CHECKOUT_ORDER_COMPLETED: CallbackType.CHECKOUT_ORDER_COMPLETED,
+        CHECKOUT_ORDER_FAILED: CallbackType.CHECKOUT_ORDER_FAILED,
+        PG_ORDER_COMPLETED: CallbackType.PG_ORDER_COMPLETED,
+        PG_ORDER_FAILED: CallbackType.PG_ORDER_FAILED,
+      });
     }
 
     // Mark webhook as processed
@@ -277,7 +341,7 @@ router.post('/webhook', authenticateWebhook, async (req, res) => {
  */
 async function handlePaymentSuccess(
   transactionId: string,
-  webhookData: unknown,
+  webhookData: CallbackData | Record<string, unknown>,
 ) {
   try {
     logger.log(`[WEBHOOK] Processing payment success for: ${transactionId}`);
@@ -299,15 +363,25 @@ async function handlePaymentSuccess(
       return;
     }
 
+    // Extract payment details from validated webhook data
+    let paymentMethod = 'UPI';
+    let paymentId = transactionId;
+
+    if (
+      'paymentDetails' in webhookData &&
+      Array.isArray(webhookData.paymentDetails)
+    ) {
+      const paymentDetail = webhookData.paymentDetails[0];
+      if (paymentDetail) {
+        paymentMethod = paymentDetail.paymentMode || 'UPI';
+        paymentId = paymentDetail.transactionId || transactionId;
+      }
+    }
+
     // Confirm the booking
-    const webhookPayload = webhookData as Record<string, unknown>;
-    const bookingResult = await confirmBooking(
-      transactionId,
-      (webhookPayload.paymentId as string) || transactionId,
-      {
-        method: (webhookPayload.paymentMethod as string) || 'UPI',
-      },
-    );
+    const bookingResult = await confirmBooking(transactionId, paymentId, {
+      method: paymentMethod,
+    });
 
     if (bookingResult.success) {
       logger.log(
@@ -335,10 +409,20 @@ async function handlePaymentSuccess(
  */
 async function handlePaymentFailure(
   transactionId: string,
-  _webhookData: unknown,
+  webhookData: CallbackData | Record<string, unknown>,
 ) {
   try {
     logger.log(`[WEBHOOK] Processing payment failure for: ${transactionId}`);
+
+    // Log failure details for debugging
+    if ('errorCode' in webhookData) {
+      logger.log(`[WEBHOOK] Error code: ${webhookData.errorCode}`);
+    }
+    if ('detailedErrorCode' in webhookData) {
+      logger.log(
+        `[WEBHOOK] Detailed error code: ${webhookData.detailedErrorCode}`,
+      );
+    }
 
     // Cancel the booking
     await cancelBooking(transactionId);
@@ -356,10 +440,16 @@ async function handlePaymentFailure(
  */
 async function handleRefundCompleted(
   transactionId: string,
-  webhookData: unknown,
+  webhookData: CallbackData | Record<string, unknown>,
 ) {
   try {
     logger.log(`[WEBHOOK] Processing refund completed for: ${transactionId}`);
+
+    // Extract refund ID from webhook data
+    let refundId = '';
+    if ('refundId' in webhookData && typeof webhookData.refundId === 'string') {
+      refundId = webhookData.refundId;
+    }
 
     // Update refund record status
     const refundQuery = await db
@@ -372,6 +462,7 @@ async function handleRefundCompleted(
       await refundDoc.ref.update({
         status: 'completed',
         completedAt: admin.firestore.FieldValue.serverTimestamp(),
+        refundId: refundId || refundDoc.data().refundId,
         webhookData: webhookData,
       });
       logger.log(
@@ -389,9 +480,28 @@ async function handleRefundCompleted(
 /**
  * Handle refund failed webhook
  */
-async function handleRefundFailed(transactionId: string, webhookData: unknown) {
+async function handleRefundFailed(
+  transactionId: string,
+  webhookData: CallbackData | Record<string, unknown>,
+) {
   try {
     logger.log(`[WEBHOOK] Processing refund failed for: ${transactionId}`);
+
+    // Extract error details from webhook data
+    let errorCode = '';
+    let detailedErrorCode = '';
+    if (
+      'errorCode' in webhookData &&
+      typeof webhookData.errorCode === 'string'
+    ) {
+      errorCode = webhookData.errorCode;
+    }
+    if (
+      'detailedErrorCode' in webhookData &&
+      typeof webhookData.detailedErrorCode === 'string'
+    ) {
+      detailedErrorCode = webhookData.detailedErrorCode;
+    }
 
     // Update refund record status
     const refundQuery = await db
@@ -404,6 +514,8 @@ async function handleRefundFailed(transactionId: string, webhookData: unknown) {
       await refundDoc.ref.update({
         status: 'failed',
         failedAt: admin.firestore.FieldValue.serverTimestamp(),
+        errorCode: errorCode,
+        detailedErrorCode: detailedErrorCode,
         webhookData: webhookData,
       });
       logger.log(`[WEBHOOK] Refund status updated to failed: ${transactionId}`);

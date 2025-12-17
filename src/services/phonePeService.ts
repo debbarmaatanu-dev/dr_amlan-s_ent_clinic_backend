@@ -2,8 +2,15 @@ import {
   StandardCheckoutClient,
   Env,
   StandardCheckoutPayRequest,
+  StandardCheckoutPayResponse,
   RefundRequest,
+  RefundResponse,
   MetaInfo,
+  CallbackType,
+  CallbackResponse,
+  CallbackData,
+  OrderStatusResponse,
+  RefundStatusResponse,
 } from 'pg-sdk-node';
 
 import type {
@@ -27,7 +34,17 @@ const phonePeClient = StandardCheckoutClient.getInstance(
   env,
 );
 
-export {phonePeClient};
+// Export PhonePe client and types for use in other modules
+export {
+  phonePeClient,
+  CallbackType,
+  CallbackResponse,
+  CallbackData,
+  StandardCheckoutPayResponse,
+  OrderStatusResponse,
+  RefundResponse,
+  RefundStatusResponse,
+};
 
 /**
  * Create a PhonePe payment order using the SDK (works for both test and production)
@@ -62,7 +79,13 @@ export const createPaymentOrder = async (
       .build();
 
     // Call PhonePe SDK - it handles test vs production automatically
-    const response = await phonePeClient.pay(payRequest);
+    const response: StandardCheckoutPayResponse =
+      await phonePeClient.pay(payRequest);
+
+    logger.log('[PHONEPE-SERVICE] Payment order created successfully');
+    logger.log('[PHONEPE-SERVICE] Order ID:', response.orderId);
+    logger.log('[PHONEPE-SERVICE] State:', response.state);
+    logger.log('[PHONEPE-SERVICE] Redirect URL:', response.redirectUrl);
 
     return {
       success: true,
@@ -74,10 +97,10 @@ export const createPaymentOrder = async (
       },
     };
   } catch (error) {
-    logger.error('Error creating PhonePe order:', error);
+    logger.error('[PHONEPE-SERVICE] Error creating PhonePe order:', error);
     if (error instanceof Error) {
-      logger.error('Error message:', error.message);
-      logger.error('Error stack:', error.stack);
+      logger.error('[PHONEPE-SERVICE] Error message:', error.message);
+      logger.error('[PHONEPE-SERVICE] Error stack:', error.stack);
     }
     return {success: false, error: 'Failed to create payment order'};
   }
@@ -91,7 +114,18 @@ export const checkPaymentStatus = async (
 ): Promise<PaymentStatusResponse> => {
   try {
     // Use PhonePe SDK for both test and production
-    const response = await phonePeClient.getOrderStatus(merchantTransactionId);
+    const response: OrderStatusResponse = await phonePeClient.getOrderStatus(
+      merchantTransactionId,
+    );
+
+    logger.log('[PHONEPE-SERVICE] Order status retrieved');
+    logger.log('[PHONEPE-SERVICE] Order ID:', response.orderId);
+    logger.log('[PHONEPE-SERVICE] State:', response.state);
+    logger.log('[PHONEPE-SERVICE] Amount:', response.amount);
+    logger.log(
+      '[PHONEPE-SERVICE] Payment Details:',
+      JSON.stringify(response.paymentDetails),
+    );
 
     // Map PhonePe status to our internal status
     let status = 'PENDING';
@@ -116,7 +150,10 @@ export const checkPaymentStatus = async (
       },
     };
   } catch (error) {
-    logger.error('Error checking PhonePe payment status:', error);
+    logger.error(
+      '[PHONEPE-SERVICE] Error checking PhonePe payment status:',
+      error,
+    );
     return {success: false, error: 'Failed to check payment status'};
   }
 };
@@ -140,7 +177,12 @@ export const initiateRefund = async (
       .build();
 
     // Call PhonePe SDK refund
-    const response = await phonePeClient.refund(refundRequest);
+    const response: RefundResponse = await phonePeClient.refund(refundRequest);
+
+    logger.log('[PHONEPE-SERVICE] Refund initiated successfully');
+    logger.log('[PHONEPE-SERVICE] Refund ID:', response.refundId);
+    logger.log('[PHONEPE-SERVICE] State:', response.state);
+    logger.log('[PHONEPE-SERVICE] Amount:', response.amount);
 
     return {
       success: true,
@@ -152,7 +194,61 @@ export const initiateRefund = async (
       },
     };
   } catch (error) {
-    logger.error('Error initiating PhonePe refund:', error);
+    logger.error('[PHONEPE-SERVICE] Error initiating PhonePe refund:', error);
     return {success: false, error: 'Failed to initiate refund'};
+  }
+};
+
+/**
+ * Validate webhook callback using PhonePe SDK
+ * This function is used by the webhook endpoint to validate incoming callbacks
+ */
+export const validateWebhookCallback = (
+  username: string,
+  password: string,
+  authorization: string,
+  responseBody: string,
+): CallbackResponse => {
+  try {
+    logger.log('[PHONEPE-SERVICE] Validating webhook callback');
+    const callbackResponse = phonePeClient.validateCallback(
+      username,
+      password,
+      authorization,
+      responseBody,
+    );
+
+    logger.log('[PHONEPE-SERVICE] Webhook validation successful');
+    logger.log('[PHONEPE-SERVICE] Callback type:', callbackResponse.type);
+    logger.log(
+      '[PHONEPE-SERVICE] Callback type (numeric):',
+      Number(callbackResponse.type),
+    );
+
+    return callbackResponse;
+  } catch (error) {
+    logger.error('[PHONEPE-SERVICE] Webhook validation failed:', error);
+    throw error;
+  }
+};
+
+/**
+ * Get refund status using PhonePe SDK
+ */
+export const getRefundStatus = async (
+  refundId: string,
+): Promise<RefundStatusResponse> => {
+  try {
+    logger.log('[PHONEPE-SERVICE] Getting refund status for:', refundId);
+    const response: RefundStatusResponse =
+      await phonePeClient.getRefundStatus(refundId);
+
+    logger.log('[PHONEPE-SERVICE] Refund status retrieved');
+    logger.log('[PHONEPE-SERVICE] Refund state:', response.state);
+
+    return response;
+  } catch (error) {
+    logger.error('[PHONEPE-SERVICE] Error getting refund status:', error);
+    throw error;
   }
 };
