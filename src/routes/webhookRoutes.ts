@@ -229,7 +229,7 @@ router.post('/webhook', authenticateWebhook, async (req, res) => {
           }),
     });
 
-    // Handle different webhook events (PhonePe SDK format from documentation)
+    // Handle different webhook events (PhonePe SDK callback types from documentation)
     switch (eventType) {
       case 'CHECKOUT_ORDER_COMPLETED':
         await handlePaymentSuccess(transactionId, webhookData);
