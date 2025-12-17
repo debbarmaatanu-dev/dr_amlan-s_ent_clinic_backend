@@ -82,10 +82,15 @@ export const createPaymentOrder = async (
     const response: StandardCheckoutPayResponse =
       await phonePeClient.pay(payRequest);
 
+    const isProduction = process.env.NODE_ENV === 'production';
+    const enableDebugLogs = process.env.ENABLE_DEBUG_LOGS === 'true';
+
     logger.log('[PHONEPE-SERVICE] Payment order created successfully');
-    logger.log('[PHONEPE-SERVICE] Order ID:', response.orderId);
-    logger.log('[PHONEPE-SERVICE] State:', response.state);
-    logger.log('[PHONEPE-SERVICE] Redirect URL:', response.redirectUrl);
+
+    if (!isProduction || enableDebugLogs) {
+      logger.log('[PHONEPE-SERVICE] Order ID:', response.orderId);
+      logger.log('[PHONEPE-SERVICE] State:', response.state);
+    }
 
     return {
       success: true,
@@ -118,14 +123,16 @@ export const checkPaymentStatus = async (
       merchantTransactionId,
     );
 
+    const isProduction = process.env.NODE_ENV === 'production';
+    const enableDebugLogs = process.env.ENABLE_DEBUG_LOGS === 'true';
+
     logger.log('[PHONEPE-SERVICE] Order status retrieved');
-    logger.log('[PHONEPE-SERVICE] Order ID:', response.orderId);
-    logger.log('[PHONEPE-SERVICE] State:', response.state);
-    logger.log('[PHONEPE-SERVICE] Amount:', response.amount);
-    logger.log(
-      '[PHONEPE-SERVICE] Payment Details:',
-      JSON.stringify(response.paymentDetails),
-    );
+
+    if (!isProduction || enableDebugLogs) {
+      logger.log('[PHONEPE-SERVICE] Order ID:', response.orderId);
+      logger.log('[PHONEPE-SERVICE] State:', response.state);
+      logger.log('[PHONEPE-SERVICE] Amount:', response.amount);
+    }
 
     // Map PhonePe status to our internal status
     let status = 'PENDING';
@@ -179,10 +186,16 @@ export const initiateRefund = async (
     // Call PhonePe SDK refund
     const response: RefundResponse = await phonePeClient.refund(refundRequest);
 
+    const isProduction = process.env.NODE_ENV === 'production';
+    const enableDebugLogs = process.env.ENABLE_DEBUG_LOGS === 'true';
+
     logger.log('[PHONEPE-SERVICE] Refund initiated successfully');
-    logger.log('[PHONEPE-SERVICE] Refund ID:', response.refundId);
-    logger.log('[PHONEPE-SERVICE] State:', response.state);
-    logger.log('[PHONEPE-SERVICE] Amount:', response.amount);
+
+    if (!isProduction || enableDebugLogs) {
+      logger.log('[PHONEPE-SERVICE] Refund ID:', response.refundId);
+      logger.log('[PHONEPE-SERVICE] State:', response.state);
+      logger.log('[PHONEPE-SERVICE] Amount:', response.amount);
+    }
 
     return {
       success: true,
@@ -210,7 +223,13 @@ export const validateWebhookCallback = (
   responseBody: string,
 ): CallbackResponse => {
   try {
-    logger.log('[PHONEPE-SERVICE] Validating webhook callback');
+    const isProduction = process.env.NODE_ENV === 'production';
+    const enableDebugLogs = process.env.ENABLE_DEBUG_LOGS === 'true';
+
+    if (!isProduction || enableDebugLogs) {
+      logger.log('[PHONEPE-SERVICE] Validating webhook callback');
+    }
+
     const callbackResponse = phonePeClient.validateCallback(
       username,
       password,
@@ -219,15 +238,17 @@ export const validateWebhookCallback = (
     );
 
     logger.log('[PHONEPE-SERVICE] Webhook validation successful');
-    logger.log('[PHONEPE-SERVICE] Callback type:', callbackResponse.type);
-    logger.log(
-      '[PHONEPE-SERVICE] Callback type (numeric):',
-      Number(callbackResponse.type),
-    );
+
+    if (!isProduction || enableDebugLogs) {
+      logger.log('[PHONEPE-SERVICE] Callback type:', callbackResponse.type);
+    }
 
     return callbackResponse;
   } catch (error) {
-    logger.error('[PHONEPE-SERVICE] Webhook validation failed:', error);
+    logger.error('[PHONEPE-SERVICE] Webhook validation failed');
+    if (process.env.ENABLE_DEBUG_LOGS === 'true') {
+      logger.error('[PHONEPE-SERVICE] Validation error details:', error);
+    }
     throw error;
   }
 };
@@ -239,12 +260,21 @@ export const getRefundStatus = async (
   refundId: string,
 ): Promise<RefundStatusResponse> => {
   try {
-    logger.log('[PHONEPE-SERVICE] Getting refund status for:', refundId);
+    const isProduction = process.env.NODE_ENV === 'production';
+    const enableDebugLogs = process.env.ENABLE_DEBUG_LOGS === 'true';
+
+    if (!isProduction || enableDebugLogs) {
+      logger.log('[PHONEPE-SERVICE] Getting refund status for:', refundId);
+    }
+
     const response: RefundStatusResponse =
       await phonePeClient.getRefundStatus(refundId);
 
     logger.log('[PHONEPE-SERVICE] Refund status retrieved');
-    logger.log('[PHONEPE-SERVICE] Refund state:', response.state);
+
+    if (!isProduction || enableDebugLogs) {
+      logger.log('[PHONEPE-SERVICE] Refund state:', response.state);
+    }
 
     return response;
   } catch (error) {

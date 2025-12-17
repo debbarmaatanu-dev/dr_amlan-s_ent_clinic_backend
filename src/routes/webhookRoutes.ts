@@ -25,14 +25,15 @@ const authenticateWebhook = (
   res: express.Response,
   next: express.NextFunction,
 ): void => {
-  // Log all webhook attempts for debugging
-  logger.log('[WEBHOOK-DEBUG] Webhook attempt received');
-  logger.log('[WEBHOOK-DEBUG] Headers:', JSON.stringify(req.headers));
-  logger.log('[WEBHOOK-DEBUG] Method:', req.method);
-  logger.log('[WEBHOOK-DEBUG] URL:', req.url);
-  logger.log('[WEBHOOK-DEBUG] Body:', JSON.stringify(req.body));
-  logger.log('[WEBHOOK-DEBUG] IP:', req.ip);
-  logger.log('[WEBHOOK-DEBUG] User-Agent:', req.headers['user-agent']);
+  // Minimal logging for production
+  const isProduction = process.env.NODE_ENV === 'production';
+  const enableDebugLogs = process.env.ENABLE_DEBUG_LOGS === 'true';
+
+  if (!isProduction || enableDebugLogs) {
+    logger.log('[WEBHOOK] Webhook attempt received');
+    logger.log('[WEBHOOK] Method:', req.method);
+    logger.log('[WEBHOOK] IP:', req.ip);
+  }
 
   // PhonePe sends authorization header (not Basic Auth)
   const authorizationHeader = req.headers.authorization;
@@ -50,9 +51,11 @@ const authenticateWebhook = (
       responseBody: JSON.stringify(req.body),
     };
 
-    logger.log(
-      '[WEBHOOK] Authorization header received, proceeding to validation',
-    );
+    if (!isProduction || enableDebugLogs) {
+      logger.log(
+        '[WEBHOOK] Authorization header received, proceeding to validation',
+      );
+    }
     next();
   } catch (error) {
     logger.error('[WEBHOOK] Error parsing credentials:', error);
@@ -96,6 +99,10 @@ const cleanupOldWebhookLogs = async (): Promise<void> => {
  * Handle PhonePe webhook notifications (called via frontend proxy)
  */
 router.post('/webhook', authenticateWebhook, async (req, res) => {
+  // Environment variables for logging control
+  const isProduction = process.env.NODE_ENV === 'production';
+  const enableDebugLogs = process.env.ENABLE_DEBUG_LOGS === 'true';
+
   try {
     // Import PhonePe validation function
     const {validateWebhookCallback} = require('../services/phonePeService');
@@ -125,32 +132,19 @@ router.post('/webhook', authenticateWebhook, async (req, res) => {
 
       if (callbackResponse) {
         logger.log('[WEBHOOK] SDK validation successful');
-        logger.log('[WEBHOOK] Callback type (enum):', callbackResponse.type);
-        logger.log(
-          '[WEBHOOK] Callback type (number):',
-          Number(callbackResponse.type),
-        );
-        logger.log(
-          '[WEBHOOK] Payload:',
-          JSON.stringify(callbackResponse.payload),
-        );
+
+        if (!isProduction || enableDebugLogs) {
+          logger.log('[WEBHOOK] Callback type:', callbackResponse.type);
+        }
 
         // Use validated data from SDK
         validatedData = callbackResponse.payload;
 
-        // Log webhook (but mask sensitive data in production)
-        const isProduction = process.env.NODE_ENV === 'production';
-        if (isProduction) {
-          logger.log(
-            '[WEBHOOK] Received webhook for transaction:',
-            validatedData.originalMerchantOrderId || validatedData.orderId,
-          );
-        } else {
-          logger.log(
-            '[WEBHOOK] Received webhook:',
-            JSON.stringify(validatedData),
-          );
-        }
+        // Log transaction ID only (minimal logging)
+        logger.log(
+          '[WEBHOOK] Processing transaction:',
+          validatedData.originalMerchantOrderId || validatedData.orderId,
+        );
 
         // Update webhookData to use validated data with proper typing
         Object.assign(webhookData, {
@@ -159,18 +153,19 @@ router.post('/webhook', authenticateWebhook, async (req, res) => {
         });
       }
     } catch (validationError) {
-      logger.error('[WEBHOOK] SDK validation failed:', validationError);
-      logger.error(
-        '[WEBHOOK] Raw webhook data for debugging:',
-        JSON.stringify(webhookData),
-      );
-      logger.error('[WEBHOOK] Authorization header:', authData.authorization);
+      logger.error('[WEBHOOK] SDK validation failed');
+
+      if (!isProduction || enableDebugLogs) {
+        logger.error('[WEBHOOK] Validation error:', validationError);
+        logger.error(
+          '[WEBHOOK] Raw webhook data:',
+          JSON.stringify(webhookData),
+        );
+      }
 
       // In test mode, be more lenient for debugging
       if (process.env.PHONEPE_ENV === 'SANDBOX') {
-        logger.log(
-          '[WEBHOOK] Test mode - proceeding without SDK validation for debugging',
-        );
+        logger.log('[WEBHOOK] Test mode - proceeding without SDK validation');
         // Use raw webhook data in test mode with fallback type
         const webhookDataTyped = webhookData as Record<string, unknown>;
         webhookDataTyped.type =
@@ -225,7 +220,6 @@ router.post('/webhook', authenticateWebhook, async (req, res) => {
     }
 
     // Log webhook event for debugging and tracking (minimal data for free plan)
-    const isProduction = process.env.NODE_ENV === 'production';
     const webhookLogRef = await db.collection('webhook_logs').add({
       eventType,
       transactionId,
@@ -246,19 +240,18 @@ router.post('/webhook', authenticateWebhook, async (req, res) => {
     });
 
     // Handle different webhook events (PhonePe SDK callback types - ENUM NUMBERS)
-    // SDK returns CallbackType enum numbers, not strings
-    logger.log(
-      `[WEBHOOK] Processing event type: ${eventType} (type: ${typeof eventType}, value: ${Number(eventType)})`,
-    );
-
-    // Use numeric comparison for enum values
     const eventTypeNum = Number(eventType);
 
+    if (!isProduction || enableDebugLogs) {
+      logger.log(`[WEBHOOK] Processing event type: ${eventType}`);
+    }
+
+    // Use numeric comparison for enum values
     if (
       eventTypeNum === CallbackType.CHECKOUT_ORDER_COMPLETED ||
       eventType === 'CHECKOUT_ORDER_COMPLETED'
     ) {
-      logger.log('[WEBHOOK] Handling CHECKOUT_ORDER_COMPLETED');
+      logger.log('[WEBHOOK] Processing payment success');
       await handlePaymentSuccess(
         transactionId,
         validatedData || webhookDataTyped,
@@ -267,19 +260,19 @@ router.post('/webhook', authenticateWebhook, async (req, res) => {
       eventTypeNum === CallbackType.CHECKOUT_ORDER_FAILED ||
       eventType === 'CHECKOUT_ORDER_FAILED'
     ) {
-      logger.log('[WEBHOOK] Handling CHECKOUT_ORDER_FAILED');
+      logger.log('[WEBHOOK] Processing payment failure');
       await handlePaymentFailure(
         transactionId,
         validatedData || webhookDataTyped,
       );
     } else if (eventTypeNum === CallbackType.PG_ORDER_COMPLETED) {
-      logger.log('[WEBHOOK] Handling PG_ORDER_COMPLETED');
+      logger.log('[WEBHOOK] Processing payment success (PG)');
       await handlePaymentSuccess(
         transactionId,
         validatedData || webhookDataTyped,
       );
     } else if (eventTypeNum === CallbackType.PG_ORDER_FAILED) {
-      logger.log('[WEBHOOK] Handling PG_ORDER_FAILED');
+      logger.log('[WEBHOOK] Processing payment failure (PG)');
       await handlePaymentFailure(
         transactionId,
         validatedData || webhookDataTyped,
@@ -288,7 +281,7 @@ router.post('/webhook', authenticateWebhook, async (req, res) => {
       eventTypeNum === CallbackType.PG_REFUND_COMPLETED ||
       eventType === 'PG_REFUND_COMPLETED'
     ) {
-      logger.log('[WEBHOOK] Handling PG_REFUND_COMPLETED');
+      logger.log('[WEBHOOK] Processing refund completed');
       await handleRefundCompleted(
         transactionId,
         validatedData || webhookDataTyped,
@@ -299,21 +292,21 @@ router.post('/webhook', authenticateWebhook, async (req, res) => {
       eventType === 'PG_REFUND_FAILED' ||
       eventType === 'PG_REFUND_ACCEPTED'
     ) {
-      logger.log('[WEBHOOK] Handling refund failed/accepted');
+      logger.log('[WEBHOOK] Processing refund failed/accepted');
       await handleRefundFailed(
         transactionId,
         validatedData || webhookDataTyped,
       );
     } else {
-      logger.log(
-        `[WEBHOOK] Unhandled event type: ${eventType} (type: ${typeof eventType}, numeric value: ${eventTypeNum})`,
-      );
-      logger.log('[WEBHOOK] Available CallbackType values:', {
-        CHECKOUT_ORDER_COMPLETED: CallbackType.CHECKOUT_ORDER_COMPLETED,
-        CHECKOUT_ORDER_FAILED: CallbackType.CHECKOUT_ORDER_FAILED,
-        PG_ORDER_COMPLETED: CallbackType.PG_ORDER_COMPLETED,
-        PG_ORDER_FAILED: CallbackType.PG_ORDER_FAILED,
-      });
+      logger.log(`[WEBHOOK] Unhandled event type: ${eventType}`);
+      if (!isProduction || enableDebugLogs) {
+        logger.log('[WEBHOOK] Available CallbackType values:', {
+          CHECKOUT_ORDER_COMPLETED: CallbackType.CHECKOUT_ORDER_COMPLETED,
+          CHECKOUT_ORDER_FAILED: CallbackType.CHECKOUT_ORDER_FAILED,
+          PG_ORDER_COMPLETED: CallbackType.PG_ORDER_COMPLETED,
+          PG_ORDER_FAILED: CallbackType.PG_ORDER_FAILED,
+        });
+      }
     }
 
     // Mark webhook as processed
