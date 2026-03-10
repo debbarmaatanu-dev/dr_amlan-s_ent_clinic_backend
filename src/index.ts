@@ -38,7 +38,8 @@ const customCors = (
   if (!origin) {
     if (
       url.startsWith('/payment/webhook') ||
-      url.startsWith('/webhook-health')
+      url.startsWith('/webhook-health') ||
+      url.startsWith('/health')
     ) {
       logger.log('[CORS] Allowing webhook request with no origin');
       res.header('Access-Control-Allow-Origin', '*');
@@ -68,7 +69,10 @@ const customCors = (
     next();
   } else {
     logger.error('[CORS] Unauthorized attempt from:', origin);
-    logger.log('[CORS] Allowed origins:', allowedOrigins);
+    // Don't log allowed origins in production for security
+    if (process.env.NODE_ENV !== 'production') {
+      logger.log('[CORS] Allowed origins:', allowedOrigins);
+    }
     res.status(403).json({error: 'CORS Not Allowed'});
   }
 };
@@ -180,7 +184,12 @@ app.get('/webhook-health', (req, res) => {
 // For Vercel serverless deployment
 if (process.env.NODE_ENV !== 'production') {
   const PORT = process.env.PORT || 3000;
-  app.listen(PORT, () => logger.log(`Server running on port ${PORT}`));
+  app.listen(PORT, () => {
+    logger.log(`Server running on port ${PORT}`);
+    logger.log(`Environment: ${process.env.NODE_ENV || 'development'}`);
+  });
+} else {
+  logger.log('Running in production mode (Vercel serverless)');
 }
 
 export default app;

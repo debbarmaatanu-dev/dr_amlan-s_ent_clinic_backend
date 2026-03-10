@@ -70,7 +70,9 @@ router.get(
         });
       }
 
-      const {date} = req.params;
+      const date = Array.isArray(req.params.date)
+        ? req.params.date[0]
+        : req.params.date;
 
       // Validate date format
       if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) {
