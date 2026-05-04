@@ -1,5 +1,5 @@
-import admin = require('firebase-admin');
-import dotenv = require('dotenv');
+import admin from 'firebase-admin';
+import dotenv from 'dotenv';
 
 dotenv.config();
 

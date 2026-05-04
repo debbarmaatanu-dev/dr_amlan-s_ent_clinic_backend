@@ -1,14 +1,16 @@
 {
   "name": "dr_amlan-s_ent_clinic-backend",
   "version": "1.0.0",
+  "type": "module",
   "main": "dist/src/index.js",
   "scripts": {
-    "build": "tsc",
-    "start": "node dist/src/index.js",
-    "dev": "tsc && node dist/src/index.js",
-    "test": "echo \"Error: no test specified\" && exit 1",
-    "lint": "eslint . --ext .ts",
-    "format": "prettier . --write"
+    "build": "bunx tsc",
+    "start": "bun dist/src/index.js",
+    "dev": "bun --watch src/index.ts",
+    "test": "bun test",
+    "lint": "bunx eslint . --ext .ts",
+    "format": "bunx prettier . --write",
+    "allow-scripts": "bunx allow-scripts auto"
   },
   "keywords": [],
   "author": {
@@ -22,32 +24,49 @@
   },
   "description": "Express Backend for Dr. Amlan's ENT Clinic",
   "dependencies": {
-    "cloudinary": "^2.9.0",
-    "dotenv": "^17.3.1",
-    "express": "^5.2.1",
-    "express-rate-limit": "^8.3.1",
-    "firebase-admin": "^13.7.0",
-    "helmet": "^8.1.0",
-    "multer": "^2.1.1",
-    "pg-sdk-node": "https://phonepe.mycloudrepo.io/public/repositories/phonepe-pg-sdk-node/releases/v2/phonepe-pg-sdk-node.tgz",
-    "streamifier": "^0.1.1"
+    "cloudinary": "2.10.0",
+    "dotenv": "17.4.2",
+    "express": "5.2.1",
+    "express-rate-limit": "8.4.1",
+    "firebase-admin": "13.8.0",
+    "helmet": "8.1.0",
+    "multer": "2.1.1",
+    "@phonepe-pg/pg-sdk-node": "2.0.6"
   },
   "devDependencies": {
-    "@eslint/js": "^9.39.1",
-    "@types/express": "^5.0.6",
-    "@types/multer": "^2.1.0",
-    "@types/node": "^25.4.0",
-    "@types/streamifier": "^0.1.2",
-    "@typescript-eslint/eslint-plugin": "^8.57.0",
-    "@typescript-eslint/parser": "^8.57.0",
-    "eslint": "^9.39.1",
-    "eslint-import-resolver-typescript": "^4.4.4",
-    "eslint-plugin-import": "^2.32.0",
-    "eslint-plugin-prettier": "^5.5.5",
-    "globals": "^17.4.0",
-    "jiti": "^2.6.1",
-    "prettier": "^3.8.1",
-    "typescript": "^5.9.3",
-    "typescript-eslint": "^8.57.0"
+    "@eslint/js": "9.39.1",
+    "@lavamoat/allow-scripts": "5.0.1",
+    "@types/express": "5.0.6",
+    "@types/multer": "2.1.0",
+    "@types/node": "25.6.0",
+    "@typescript-eslint/eslint-plugin": "8.59.1",
+    "@typescript-eslint/parser": "8.59.1",
+    "eslint": "9.39.4",
+    "eslint-config-prettier": "10.1.8",
+    "eslint-import-resolver-typescript": "4.4.4",
+    "eslint-plugin-import": "2.32.0",
+    "eslint-plugin-prettier": "5.5.5",
+    "globals": "17.6.0",
+    "jiti": "2.6.1",
+    "prettier": "3.8.3",
+    "typescript": "5.9.3",
+    "typescript-eslint": "8.59.1"
+  },
+  "trustedDependencies": [
+    "unrs-resolver",
+    "@firebase/util",
+    "protobufjs"
+  ],
+  "lavamoat": {
+    "allowScripts": {
+      "eslint-import-resolver-typescript>unrs-resolver#1.11.1": true,
+      "firebase-admin>@firebase/database-types>@firebase/util#1.15.0": true,
+      "firebase-admin>@google-cloud/firestore>protobufjs#7.5.6": true
+    }
+  },
+  "overrides": {
+    "class-transformer": "0.3.2",
+    "@tootallnate/once": "3.0.1",
+    "uuid": "14.0.0"
   }
 }

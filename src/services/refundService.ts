@@ -1,6 +1,6 @@
-import admin = require('firebase-admin');
-import type {RefundRecord, RefundBookingData} from '../types/types';
-import {logger} from '../utils/logger';
+import admin from 'firebase-admin';
+import type {RefundRecord, RefundBookingData} from '../types/types.js';
+import {logger} from '../utils/logger.js';
 
 const db = admin.firestore();
 

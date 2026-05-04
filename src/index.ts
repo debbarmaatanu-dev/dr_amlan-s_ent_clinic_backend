@@ -1,18 +1,21 @@
-import express = require('express');
+import express from 'express';
 import helmet from 'helmet';
-import dotenv = require('dotenv');
-import protectedRoutes = require('./routes/protected');
-import cloudinaryRoutes = require('./routes/cloudinaryRoutes');
-import paymentRoutes = require('./routes/paymentRoutes');
-import appointmentRoutes = require('./routes/appointmentRoutes');
-import webhookRoutes = require('./routes/webhookRoutes');
-import {generalRateLimiter, paymentRateLimiter} from './middleware/rateLimiter';
+import dotenv from 'dotenv';
+import protectedRoutes from './routes/protected.js';
+import cloudinaryRoutes from './routes/cloudinaryRoutes.js';
+import paymentRoutes from './routes/paymentRoutes.js';
+import appointmentRoutes from './routes/appointmentRoutes.js';
+import webhookRoutes from './routes/webhookRoutes.js';
+import {
+  generalRateLimiter,
+  paymentRateLimiter,
+} from './middleware/rateLimiter.js';
 import {
   geoLocationBlock,
   validateRequestSize,
   securityLogger,
-} from './middleware/security';
-import {logger} from './utils/logger';
+} from './middleware/security.js';
+import {logger} from './utils/logger.js';
 
 dotenv.config();
 

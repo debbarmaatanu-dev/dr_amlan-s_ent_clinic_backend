@@ -1,9 +1,9 @@
-import express = require('express');
-import {deleteFile} from '../controllers/deleteFileController';
-import {replaceImage} from '../controllers/updateImage';
-import {addImage} from '../controllers/addImage';
-import {addPDF} from '../controllers/addPDF';
-import {replacePDF} from '../controllers/replacePDF';
+import express from 'express';
+import {deleteFile} from '../controllers/deleteFileController.js';
+import {replaceImage} from '../controllers/updateImage.js';
+import {addImage} from '../controllers/addImage.js';
+import {addPDF} from '../controllers/addPDF.js';
+import {replacePDF} from '../controllers/replacePDF.js';
 
 const router = express.Router();
 
@@ -13,4 +13,4 @@ router.post('/deleteFile', deleteFile);
 router.post('/addPDF', addPDF);
 router.post('/replacePDF', replacePDF);
 
-export = router;
+export default router;

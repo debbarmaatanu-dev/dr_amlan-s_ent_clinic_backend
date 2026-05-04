@@ -1,13 +1,12 @@
-import express = require('express');
-import {Request, Response} from 'express';
-import admin = require('firebase-admin');
-import {authenticateFirebaseToken} from '../middleware/auth';
-import {updateText} from '../controllers/updateText';
-import {addDocument} from '../controllers/addDocument';
-import {updateDocument} from '../controllers/updateDocument';
-import {deleteDocument} from '../controllers/deleteDocument';
-import type {BookingData, ClinicControl} from '../types/types';
-import {logger} from '../utils/logger';
+import express, {Request, Response} from 'express';
+import admin from 'firebase-admin';
+import {authenticateFirebaseToken} from '../middleware/auth.js';
+import {updateText} from '../controllers/updateText.js';
+import {addDocument} from '../controllers/addDocument.js';
+import {updateDocument} from '../controllers/updateDocument.js';
+import {deleteDocument} from '../controllers/deleteDocument.js';
+import type {BookingData, ClinicControl} from '../types/types.js';
+import {logger} from '../utils/logger.js';
 
 const db = admin.firestore();
 
@@ -466,4 +465,4 @@ router.post(
   },
 );
 
-export = router;
+export default router;

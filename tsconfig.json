@@ -1,9 +1,9 @@
 {
   "compilerOptions": {
     "target": "ES2022",
-    "module": "CommonJS",
+    "module": "nodenext",
     "lib": ["ES2022"],
-    "moduleResolution": "node",
+    "moduleResolution": "nodenext",
     "rootDir": "./",
     "outDir": "./dist",
     "esModuleInterop": true,
@@ -18,10 +18,10 @@
     "noUnusedLocals": true,
     "noUnusedParameters": true,
     "noImplicitReturns": true,
-    "noFallthroughCasesInSwitch": true
-  },
-  "paths": {
-    "@/*": ["./src*"]
+    "noFallthroughCasesInSwitch": true,
+    "paths": {
+      "@/*": ["./src/*"]
+    }
   },
   "include": ["src/**/*.ts"],
   "exclude": ["node_modules", "dist"]

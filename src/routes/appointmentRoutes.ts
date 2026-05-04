@@ -1,6 +1,6 @@
-import express = require('express');
-import admin = require('firebase-admin');
-import type {BookingData} from '../types/types';
+import express from 'express';
+import admin from 'firebase-admin';
+import type {BookingData} from '../types/types.js';
 
 const router = express.Router();
 const db = admin.firestore();
@@ -125,12 +125,57 @@ router.post('/search', async (req, res) => {
 });
 
 /**
+ * GET /api/appointment/available-slots?date=YYYY-MM-DD
+ * Online slots remaining for a date (admin SDK only; client Firestore denied)
+ */
+router.get('/available-slots', async (req, res) => {
+  try {
+    const dateParam = req.query.date;
+    if (
+      typeof dateParam !== 'string' ||
+      !/^\d{4}-\d{2}-\d{2}$/.test(dateParam)
+    ) {
+      return res.status(400).json({
+        success: false,
+        error: 'Invalid or missing date (use YYYY-MM-DD)',
+      });
+    }
+
+    const docId = formatDateToDocId(dateParam);
+    const docSnap = await db
+      .collection('appointment_bookings')
+      .doc(docId)
+      .get();
+
+    let availableSlots: number;
+    if (docSnap.exists) {
+      const data = docSnap.data();
+      const bookings = data?.bookings || [];
+      availableSlots = Math.max(0, 10 - bookings.length);
+    } else {
+      availableSlots = 10;
+    }
+
+    return res.json({
+      success: true,
+      availableSlots,
+    });
+  } catch (error) {
+    console.error('Error fetching available slots:', error);
+    return res.status(500).json({
+      success: false,
+      error: 'Internal server error',
+    });
+  }
+});
+
+/**
  * GET /api/appointment/clinic-status
  * Get clinic status for public display (no auth required)
  */
 router.get('/clinic-status', async (_, res) => {
   try {
-    const {getClinicStatus} = await import('../services/clinicService');
+    const {getClinicStatus} = await import('../services/clinicService.js');
     const status = await getClinicStatus();
 
     return res.json({
@@ -146,4 +191,4 @@ router.get('/clinic-status', async (_, res) => {
   }
 });
 
-export = router;
+export default router;

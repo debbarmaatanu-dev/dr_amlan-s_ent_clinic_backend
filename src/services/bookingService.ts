@@ -1,9 +1,9 @@
-import admin = require('firebase-admin');
+import admin from 'firebase-admin';
 import type {
   BookingData,
   PendingBooking,
   BookingCreationData,
-} from '../types/types';
+} from '../types/types.js';
 
 const db = admin.firestore();
 

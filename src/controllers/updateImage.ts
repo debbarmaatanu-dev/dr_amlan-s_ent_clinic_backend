@@ -1,7 +1,7 @@
 import {Request, Response} from 'express';
-import multer = require('multer');
-import streamifier = require('streamifier');
-import cloudinary = require('../services/cloudinary');
+import multer from 'multer';
+import {Readable} from 'stream';
+import cloudinary from '../services/cloudinary.js';
 
 const storage = multer.memoryStorage();
 const upload = multer({storage}).single('file');
@@ -66,7 +66,7 @@ export const replaceImage = (req: Request, res: Response): void => {
         },
       );
 
-      streamifier.createReadStream(fileBuffer).pipe(uploadStream);
+      Readable.from(fileBuffer).pipe(uploadStream);
     } catch (error) {
       console.error('[replaceImage] Server error:', error);
       res.status(500).json({success: false, message: 'Server error', error});

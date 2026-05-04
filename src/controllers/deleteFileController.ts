@@ -1,5 +1,5 @@
 import {Request, Response} from 'express';
-import cloudinary = require('../services/cloudinary');
+import cloudinary from '../services/cloudinary.js';
 
 export const deleteFile = async (
   req: Request,

@@ -1,4 +1,4 @@
-import admin = require('firebase-admin');
+import type {FieldValue} from 'firebase-admin/firestore';
 
 /**
  * Booking data structure stored in Firestore
@@ -35,7 +35,7 @@ export interface PendingBooking {
   phone: string;
   amount: number;
   status: 'pending' | 'completed' | 'failed';
-  createdAt: admin.firestore.FieldValue;
+  createdAt: FieldValue;
 }
 
 /**
@@ -51,7 +51,7 @@ export interface PaymentSession {
     age: number;
     phone: string;
   };
-  createdAt: admin.firestore.FieldValue;
+  createdAt: FieldValue;
   expiresAt: Date;
 }
 
@@ -66,8 +66,8 @@ export interface RefundRecord {
   reason: string;
   status: 'initiated' | 'completed' | 'failed';
   bookingData: RefundBookingData;
-  createdAt: admin.firestore.FieldValue;
-  completedAt?: admin.firestore.FieldValue;
+  createdAt: FieldValue;
+  completedAt?: FieldValue;
 }
 
 /**
@@ -163,8 +163,8 @@ export interface ClinicControl {
   isManuallyOverridden: boolean;
   closedFrom?: string; // YYYY-MM-DD format
   closedTill?: string; // YYYY-MM-DD format
-  createdAt: admin.firestore.FieldValue;
-  updatedAt: admin.firestore.FieldValue;
+  createdAt: FieldValue;
+  updatedAt: FieldValue;
 }
 
 /**

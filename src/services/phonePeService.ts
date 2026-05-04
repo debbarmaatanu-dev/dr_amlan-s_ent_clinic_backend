@@ -11,14 +11,14 @@ import {
   CallbackData,
   OrderStatusResponse,
   RefundStatusResponse,
-} from 'pg-sdk-node';
+} from '@phonepe-pg/pg-sdk-node';
 
 import type {
   PaymentOrderData,
   PaymentOrderResponse,
   PaymentStatusResponse,
-} from '../types/types';
-import {logger} from '../utils/logger';
+} from '../types/types.js';
+import {logger} from '../utils/logger.js';
 
 // Initialize PhonePe client instance
 const clientId = process.env.PHONEPE_CLIENT_ID!;

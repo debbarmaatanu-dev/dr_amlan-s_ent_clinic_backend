@@ -1,5 +1,5 @@
 import {Request, Response} from 'express';
-import admin = require('firebase-admin');
+import admin from 'firebase-admin';
 
 export const updateDocument = async (
   req: Request,

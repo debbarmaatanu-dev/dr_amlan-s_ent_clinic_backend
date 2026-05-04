@@ -1,8 +1,13 @@
-import express = require('express');
-import admin = require('firebase-admin');
-import {logger} from '../utils/logger';
-import {confirmBooking, cancelBooking} from '../services/bookingService';
-import {CallbackType, CallbackResponse, CallbackData} from 'pg-sdk-node';
+import express from 'express';
+import admin from 'firebase-admin';
+import {logger} from '../utils/logger.js';
+import {confirmBooking, cancelBooking} from '../services/bookingService.js';
+import {
+  CallbackType,
+  CallbackResponse,
+  CallbackData,
+} from '@phonepe-pg/pg-sdk-node';
+import {validateWebhookCallback} from '../services/phonePeService.js';
 
 // Extend Express Request type for PhonePe auth data
 declare module 'express-serve-static-core' {
@@ -104,9 +109,6 @@ router.post('/webhook', authenticateWebhook, async (req, res) => {
   const enableDebugLogs = process.env.ENABLE_DEBUG_LOGS === 'true';
 
   try {
-    // Import PhonePe validation function
-    const {validateWebhookCallback} = require('../services/phonePeService');
-
     // Get auth data from middleware
     const authData = req.phonepeAuth;
     const webhookData = req.body;
@@ -578,4 +580,4 @@ router.post('/webhook-test', (req, res) => {
   }
 });
 
-export = router;
+export default router;

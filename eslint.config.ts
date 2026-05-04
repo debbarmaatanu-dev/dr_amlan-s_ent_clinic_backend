@@ -1,6 +1,7 @@
 import js from '@eslint/js';
 import globals from 'globals';
 import prettier from 'eslint-plugin-prettier';
+import eslintConfigPrettier from 'eslint-config-prettier';
 import eslintPluginImport from 'eslint-plugin-import';
 import tseslint from 'typescript-eslint';
 
@@ -10,7 +11,11 @@ export default tseslint.config(
   },
   {
     files: ['**/*.ts'],
-    extends: [js.configs.recommended, ...tseslint.configs.recommended],
+    extends: [
+      js.configs.recommended,
+      ...tseslint.configs.recommended,
+      eslintConfigPrettier,
+    ],
     languageOptions: {
       ecmaVersion: 'latest',
       sourceType: 'module',

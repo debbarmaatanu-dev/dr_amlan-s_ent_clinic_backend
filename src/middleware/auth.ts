@@ -1,5 +1,5 @@
 import {Request, Response, NextFunction} from 'express';
-import {adminAuth} from '../services/firebaseAdmin';
+import {adminAuth} from '../services/firebaseAdmin.js';
 
 export async function authenticateFirebaseToken(
   req: Request,

@@ -1,17 +1,17 @@
-import express = require('express');
-import admin = require('firebase-admin');
+import express from 'express';
+import admin from 'firebase-admin';
 import {
   createPaymentOrder,
   checkPaymentStatus,
-} from '../services/phonePeService';
+} from '../services/phonePeService.js';
 
 import {
   createPendingBooking,
   confirmBooking,
   cancelBooking,
-} from '../services/bookingService';
-import {isClinicOpen} from '../services/clinicService';
-import {logger} from '../utils/logger';
+} from '../services/bookingService.js';
+import {isClinicOpen} from '../services/clinicService.js';
+import {logger} from '../utils/logger.js';
 
 const router = express.Router();
 const db = admin.firestore();
@@ -273,7 +273,7 @@ router.get('/callback', async (req, res) => {
   }
 });
 
-export = router;
+export default router;
 
 /**
  * GET /api/payment/status-by-transaction/:transactionId
@@ -320,7 +320,8 @@ router.get('/status-by-transaction/:transactionId', async (req, res) => {
 
         // Initiate automatic refund
         try {
-          const {initiateRefund} = await import('../services/phonePeService');
+          const {initiateRefund} =
+            await import('../services/phonePeService.js');
           const refundResult = await initiateRefund(
             transactionId,
             statusResult.payment?.amount || 40000, // Amount in paise
@@ -334,7 +335,7 @@ router.get('/status-by-transaction/:transactionId', async (req, res) => {
 
             // Store refund record
             const {createRefundRecord} =
-              await import('../services/refundService');
+              await import('../services/refundService.js');
             await createRefundRecord(
               refundResult.refund?.refundId || `auto_${transactionId}`,
               transactionId,

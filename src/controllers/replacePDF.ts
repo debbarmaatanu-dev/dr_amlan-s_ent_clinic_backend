@@ -1,8 +1,8 @@
 import {Request, Response} from 'express';
-import multer = require('multer');
-import streamifier = require('streamifier');
-import cloudinary = require('../services/cloudinary');
-import {logger} from '../utils/logger';
+import multer from 'multer';
+import {Readable} from 'stream';
+import cloudinary from '../services/cloudinary.js';
+import {logger} from '../utils/logger.js';
 
 const storage = multer.memoryStorage();
 const upload = multer({storage}).single('file');
@@ -78,7 +78,7 @@ export const replacePDF = (req: Request, res: Response): void => {
         },
       );
 
-      streamifier.createReadStream(fileBuffer).pipe(uploadStream);
+      Readable.from(fileBuffer).pipe(uploadStream);
     } catch (error) {
       console.error('[replacePDF] Server error:', error);
       res.status(500).json({success: false, message: 'Server error', error});

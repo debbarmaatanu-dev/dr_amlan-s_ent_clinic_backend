@@ -1,5 +1,5 @@
-import admin = require('firebase-admin');
-import type {ClinicControl} from '../types/types';
+import admin from 'firebase-admin';
+import type {ClinicControl} from '../types/types.js';
 
 const db = admin.firestore();
 
