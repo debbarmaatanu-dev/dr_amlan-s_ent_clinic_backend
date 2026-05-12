@@ -4,13 +4,13 @@
   "type": "module",
   "main": "dist/src/index.js",
   "scripts": {
-    "build": "bunx tsc",
-    "start": "bun dist/src/index.js",
-    "dev": "bun --watch src/index.ts",
-    "test": "bun test",
-    "lint": "bunx eslint . --ext .ts",
-    "format": "bunx prettier . --write",
-    "allow-scripts": "bunx allow-scripts auto"
+    "build": "npx tsc",
+    "start": "node dist/src/index.js",
+    "dev": "tsx watch src/index.ts",
+    "test": "npm test",
+    "lint": "npx eslint . --ext .ts",
+    "format": "npx prettier . --write",
+    "allow-scripts": "npx allow-scripts auto"
   },
   "keywords": [],
   "author": {
@@ -24,14 +24,14 @@
   },
   "description": "Express Backend for Dr. Amlan's ENT Clinic",
   "dependencies": {
+    "@phonepe-pg/pg-sdk-node": "2.0.6",
     "cloudinary": "2.10.0",
     "dotenv": "17.4.2",
     "express": "5.2.1",
-    "express-rate-limit": "8.4.1",
+    "express-rate-limit": "8.5.1",
     "firebase-admin": "13.8.0",
     "helmet": "8.1.0",
-    "multer": "2.1.1",
-    "@phonepe-pg/pg-sdk-node": "2.0.6"
+    "multer": "2.1.1"
   },
   "devDependencies": {
     "@eslint/js": "9.39.1",
@@ -49,6 +49,7 @@
     "globals": "17.6.0",
     "jiti": "2.6.1",
     "prettier": "3.8.3",
+    "tsx": "^4.21.0",
     "typescript": "5.9.3",
     "typescript-eslint": "8.59.1"
   },
@@ -67,7 +68,6 @@
   "overrides": {
     "class-transformer": "0.3.2",
     "@tootallnate/once": "3.0.1",
-    "uuid": "14.0.0",
     "protobufjs": "7.5.6"
   }
 }

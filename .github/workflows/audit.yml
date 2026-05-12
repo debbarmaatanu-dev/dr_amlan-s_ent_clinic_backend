@@ -4,11 +4,11 @@ on:
   push:
     paths:
       - 'package.json'
-      - 'bun.lock'
+      - 'package-lock.json'
   pull_request:
     paths:
       - 'package.json'
-      - 'bun.lock'
+      - 'package-lock.json'
 
 jobs:
   audit:
@@ -19,16 +19,17 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Setup Bun
-        uses: oven-sh/setup-bun@v2
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
         with:
-          bun-version: latest
+          node-version: 'lts/*'
+          cache: 'npm'
 
       - name: Install dependencies (frozen lockfile)
-        run: bun install --frozen-lockfile
+        run: npm ci
 
       - name: Run security audit
-        run: bun audit
+        run: npm audit --audit-level=moderate
 
       - name: Check for new postinstall scripts
         run: |
