@@ -1,6 +1,24 @@
 import {Request, Response, NextFunction} from 'express';
 import {logger} from '../utils/logger.js';
 
+/** Tells search engines not to index any API response (defense in depth with robots.txt). */
+export const SEARCH_ENGINE_BLOCK_HEADER =
+  'noindex, nofollow, noarchive, nosnippet';
+
+export const ROBOTS_TXT_BODY = ['User-agent: *', 'Disallow: /', ''].join('\n');
+
+/**
+ * Sets X-Robots-Tag on every response so crawlers should not index API URLs.
+ */
+export const blockSearchIndexing = (
+  _req: Request,
+  res: Response,
+  next: NextFunction,
+): void => {
+  res.setHeader('X-Robots-Tag', SEARCH_ENGINE_BLOCK_HEADER);
+  next();
+};
+
 /**
  * Geolocation middleware to block non-Indian requests
  * Works with Cloudflare's CF-IPCountry header or fallback IP geolocation
@@ -11,6 +29,12 @@ export const geoLocationBlock = (
   next: NextFunction,
 ): void => {
   try {
+    // Allow crawlers to fetch robots.txt (still noindex via header + Disallow: /)
+    if (req.path === '/robots.txt') {
+      next();
+      return;
+    }
+
     // Check Vercel geolocation header
     const vercelCountry = req.headers['x-vercel-ip-country'] as string;
 

@@ -11,7 +11,9 @@ import {
   paymentRateLimiter,
 } from './middleware/rateLimiter.js';
 import {
+  blockSearchIndexing,
   geoLocationBlock,
+  ROBOTS_TXT_BODY,
   validateRequestSize,
   securityLogger,
 } from './middleware/security.js';
@@ -42,7 +44,8 @@ const customCors = (
     if (
       url.startsWith('/payment/webhook') ||
       url.startsWith('/webhook-health') ||
-      url.startsWith('/health')
+      url.startsWith('/health') ||
+      url === '/robots.txt'
     ) {
       logger.log('[CORS] Allowing webhook request with no origin');
       res.header('Access-Control-Allow-Origin', '*');
@@ -93,11 +96,16 @@ app.use(
     },
   }),
 );
+app.use(blockSearchIndexing);
 app.use(customCors);
 
 // Apply global security middlewares
 app.use(securityLogger);
 app.use(geoLocationBlock);
+
+app.get('/robots.txt', (_, res) => {
+  res.type('text/plain').send(ROBOTS_TXT_BODY);
+});
 
 app.get('/', (_, res) => {
   try {
