@@ -37,7 +37,7 @@ jobs:
           const fs = require('fs');
           const path = require('path');
           const nm = './node_modules';
-          const ALLOWED = ['protobufjs', 'unrs-resolver', '@firebase/util'];
+          const ALLOWED = ['protobufjs', 'unrs-resolver', '@firebase/util', 'esbuild'];
           let violations = [];
           fs.readdirSync(nm).forEach(pkg => {
             try {
