@@ -34,3 +34,19 @@ export async function authenticateFirebaseToken(
     res.status(403).json({message: 'Token verification failed', error});
   }
 }
+
+/** Ensures authenticateFirebaseToken ran and attached req.user (admin). */
+export function requireAdmin(
+  req: Request,
+  res: Response,
+  next: NextFunction,
+): void {
+  if (!req.user) {
+    res.status(401).json({
+      success: false,
+      error: 'Authentication required',
+    });
+    return;
+  }
+  next();
+}

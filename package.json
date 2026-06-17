@@ -8,7 +8,7 @@
     "start": "node dist/src/index.js",
     "dev": "tsx watch src/index.ts",
     "test": "npm test",
-    "lint": "npx eslint . --ext .ts",
+    "lint": "npx eslint .",
     "format": "npx prettier . --write",
     "allow-scripts": "npx allow-scripts auto"
   },
@@ -28,30 +28,31 @@
     "cloudinary": "2.10.0",
     "dotenv": "17.4.2",
     "express": "5.2.1",
-    "express-rate-limit": "8.5.1",
-    "firebase-admin": "13.8.0",
-    "helmet": "8.1.0",
-    "multer": "2.1.1"
+    "express-rate-limit": "8.5.2",
+    "fallow": "2.98.0",
+    "firebase-admin": "14.0.0",
+    "helmet": "8.2.0",
+    "multer": "2.2.0"
   },
   "devDependencies": {
-    "@eslint/js": "9.39.1",
-    "@lavamoat/allow-scripts": "5.0.1",
+    "@eslint/js": "10.0.1",
+    "@lavamoat/allow-scripts": "5.0.2",
     "@types/express": "5.0.6",
     "@types/multer": "2.1.0",
-    "@types/node": "25.6.0",
-    "@typescript-eslint/eslint-plugin": "8.59.1",
-    "@typescript-eslint/parser": "8.59.1",
-    "eslint": "9.39.4",
+    "@types/node": "25.9.3",
+    "@typescript-eslint/eslint-plugin": "8.61.1",
+    "@typescript-eslint/parser": "8.61.1",
+    "eslint": "10.5.0",
     "eslint-config-prettier": "10.1.8",
-    "eslint-import-resolver-typescript": "4.4.4",
-    "eslint-plugin-import": "2.32.0",
-    "eslint-plugin-prettier": "5.5.5",
+    "eslint-import-resolver-typescript": "4.4.5",
+    "eslint-plugin-import-x": "4.16.2",
+    "eslint-plugin-prettier": "5.5.6",
     "globals": "17.6.0",
-    "jiti": "2.6.1",
-    "prettier": "3.8.3",
-    "tsx": "^4.21.0",
-    "typescript": "5.9.3",
-    "typescript-eslint": "8.59.1"
+    "jiti": "2.7.0",
+    "prettier": "3.8.4",
+    "tsx": "4.22.4",
+    "typescript": "6.0.3",
+    "typescript-eslint": "8.61.1"
   },
   "trustedDependencies": [
     "unrs-resolver",
@@ -66,8 +67,6 @@
     }
   },
   "overrides": {
-    "class-transformer": "0.3.2",
-    "@tootallnate/once": "3.0.1",
-    "protobufjs": "7.5.6"
+    "class-transformer": "0.3.2"
   }
 }

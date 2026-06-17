@@ -1,5 +1,7 @@
+// Legacy CMS API — routes commented out in protected.ts (not used by frontend).
 import {Request, Response} from 'express';
-import admin from 'firebase-admin';
+import {FieldValue} from 'firebase-admin/firestore';
+import {db} from '../services/firebaseAdmin.js';
 
 export const addDocument = async (
   req: Request,
@@ -16,12 +18,10 @@ export const addDocument = async (
   }
 
   try {
-    const db = admin.firestore();
-
     const docRef = await db.collection(collectionName).add({
       ...documentData,
-      createdAt: admin.firestore.FieldValue.serverTimestamp(),
-      updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+      createdAt: FieldValue.serverTimestamp(),
+      updatedAt: FieldValue.serverTimestamp(),
     });
 
     const docSnap = await docRef.get();

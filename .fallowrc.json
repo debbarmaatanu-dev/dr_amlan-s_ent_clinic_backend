@@ -1,0 +1,106 @@
+{
+  "$schema": "https://raw.githubusercontent.com/fallow-rs/fallow/main/schema.json",
+  "entry": ["src/index.{ts,tsx,js,jsx}"],
+  "ignoreDependencies": [
+    "immer",
+    "eslint-config-prettier",
+    "eslint-plugin-import-x",
+    "eslint-import-resolver-typescript",
+    "@typescript-eslint/eslint-plugin",
+    "@typescript-eslint/parser",
+    "@testing-library/jest-native",
+    "@testing-library/react-native",
+    "@types/jest",
+    "jest",
+    "cross-env",
+    "globals",
+    "jiti",
+    "cloudinary",
+    "multer",
+    "fallow"
+  ],
+  "ignoreExports": [
+    {
+      "file": "src/services/phonePeService.ts",
+      "exports": ["validateWebhookCallback"]
+    }
+  ],
+  "ignorePatterns": [
+    "src/features/**/tests/**",
+    "src/shared/**/tests/**",
+    "src/tests/**",
+    "**/tests/**",
+    "**/__tests__/**",
+    "**/*.test.ts",
+    "**/*.test.tsx",
+    "**/*.spec.ts",
+    "**/*.spec.tsx",
+    "jest.config.js",
+    "jest.setup.js",
+    "src/routes/cloudinaryRoutes.ts",
+    "src/services/cloudinary.ts",
+    "src/controllers/addImage.ts",
+    "src/controllers/updateImage.ts",
+    "src/controllers/addPDF.ts",
+    "src/controllers/replacePDF.ts",
+    "src/controllers/deleteFileController.ts",
+    "src/controllers/updateText.ts",
+    "src/controllers/addDocument.ts",
+    "src/controllers/updateDocument.ts",
+    "src/controllers/deleteDocument.ts",
+    "src/routes/webhookRoutes.ts"
+  ],
+  "duplicates": {
+    "minOccurrences": 3,
+    "ignore": [
+      "**/lib/**",
+      "**/dist/**",
+      "**/node_modules/**",
+      "**/docs/**",
+      "src/features/**/tests/**",
+      "src/shared/**/tests/**",
+      "src/tests/**",
+      "**/tests/**",
+      "**/*.test.ts",
+      "**/*.test.tsx",
+      "src/routes/cloudinaryRoutes.ts",
+      "src/services/cloudinary.ts",
+      "src/controllers/addImage.ts",
+      "src/controllers/updateImage.ts",
+      "src/controllers/addPDF.ts",
+      "src/controllers/replacePDF.ts",
+      "src/controllers/deleteFileController.ts",
+      "src/controllers/updateText.ts",
+      "src/controllers/addDocument.ts",
+      "src/controllers/updateDocument.ts",
+      "src/controllers/deleteDocument.ts",
+      "src/routes/webhookRoutes.ts"
+    ],
+    "mode": "mild"
+  },
+  "health": {
+    "ignore": [
+      "src/features/**/tests/**",
+      "src/shared/**/tests/**",
+      "src/tests/**",
+      "**/tests/**",
+      "**/*.test.ts",
+      "**/*.test.tsx",
+      "src/routes/cloudinaryRoutes.ts",
+      "src/services/cloudinary.ts",
+      "src/controllers/addImage.ts",
+      "src/controllers/updateImage.ts",
+      "src/controllers/addPDF.ts",
+      "src/controllers/replacePDF.ts",
+      "src/controllers/deleteFileController.ts",
+      "src/controllers/updateText.ts",
+      "src/controllers/addDocument.ts",
+      "src/controllers/updateDocument.ts",
+      "src/controllers/deleteDocument.ts",
+      "src/routes/webhookRoutes.ts"
+    ]
+  },
+  "rules": {
+    "circular-dependencies": "error"
+  }
+}

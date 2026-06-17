@@ -39,23 +39,6 @@ export interface PendingBooking {
 }
 
 /**
- * Payment session data structure
- */
-export interface PaymentSession {
-  sessionId: string;
-  transactionId: string;
-  bookingData: {
-    date: string;
-    name: string;
-    gender: string;
-    age: number;
-    phone: string;
-  };
-  createdAt: FieldValue;
-  expiresAt: Date;
-}
-
-/**
  * Refund record data structure
  */
 export interface RefundRecord {
@@ -135,28 +118,6 @@ export interface PaymentStatusResponse {
 }
 
 /**
- * API response structure for admin bookings
- */
-export interface AdminBookingsResponse {
-  success: boolean;
-  bookings?: BookingData[];
-  totalBookings?: number;
-  date?: string;
-  message?: string;
-  error?: string;
-}
-
-/**
- * API response structure for appointment search
- */
-export interface AppointmentSearchResponse {
-  success: boolean;
-  booking?: BookingData;
-  message?: string;
-  error?: string;
-}
-
-/**
  * Clinic control data structure
  */
 export interface ClinicControl {
@@ -165,18 +126,4 @@ export interface ClinicControl {
   closedTill?: string; // YYYY-MM-DD format
   createdAt: FieldValue;
   updatedAt: FieldValue;
-}
-
-/**
- * API response for clinic status
- */
-export interface ClinicStatusResponse {
-  success: boolean;
-  status?: {
-    isManuallyOverridden: boolean;
-    closedFrom?: string;
-    closedTill?: string;
-    message?: string;
-  };
-  error?: string;
 }

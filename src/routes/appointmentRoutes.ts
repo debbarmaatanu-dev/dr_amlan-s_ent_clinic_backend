@@ -1,9 +1,8 @@
 import express from 'express';
-import admin from 'firebase-admin';
 import type {BookingData} from '../types/types.js';
+import {db} from '../services/firebaseAdmin.js';
 
 const router = express.Router();
-const db = admin.firestore();
 
 /**
  * Format date from YYYY-MM-DD to DD-MM-YYYY for Firestore document ID

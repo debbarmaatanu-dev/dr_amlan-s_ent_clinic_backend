@@ -6,11 +6,8 @@ import {
   RefundRequest,
   RefundResponse,
   MetaInfo,
-  CallbackType,
   CallbackResponse,
-  CallbackData,
   OrderStatusResponse,
-  RefundStatusResponse,
 } from '@phonepe-pg/pg-sdk-node';
 
 import type {
@@ -33,18 +30,6 @@ const phonePeClient = StandardCheckoutClient.getInstance(
   clientVersion,
   env,
 );
-
-// Export PhonePe client and types for use in other modules
-export {
-  phonePeClient,
-  CallbackType,
-  CallbackResponse,
-  CallbackData,
-  StandardCheckoutPayResponse,
-  OrderStatusResponse,
-  RefundResponse,
-  RefundStatusResponse,
-};
 
 /**
  * Create a PhonePe payment order using the SDK (works for both test and production)
@@ -249,36 +234,6 @@ export const validateWebhookCallback = (
     if (process.env.ENABLE_DEBUG_LOGS === 'true') {
       logger.error('[PHONEPE-SERVICE] Validation error details:', error);
     }
-    throw error;
-  }
-};
-
-/**
- * Get refund status using PhonePe SDK
- */
-export const getRefundStatus = async (
-  refundId: string,
-): Promise<RefundStatusResponse> => {
-  try {
-    const isProduction = process.env.NODE_ENV === 'production';
-    const enableDebugLogs = process.env.ENABLE_DEBUG_LOGS === 'true';
-
-    if (!isProduction || enableDebugLogs) {
-      logger.log('[PHONEPE-SERVICE] Getting refund status for:', refundId);
-    }
-
-    const response: RefundStatusResponse =
-      await phonePeClient.getRefundStatus(refundId);
-
-    logger.log('[PHONEPE-SERVICE] Refund status retrieved');
-
-    if (!isProduction || enableDebugLogs) {
-      logger.log('[PHONEPE-SERVICE] Refund state:', response.state);
-    }
-
-    return response;
-  } catch (error) {
-    logger.error('[PHONEPE-SERVICE] Error getting refund status:', error);
     throw error;
   }
 };

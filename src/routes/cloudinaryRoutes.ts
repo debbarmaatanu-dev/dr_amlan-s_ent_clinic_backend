@@ -1,3 +1,5 @@
+// Legacy upload API — not mounted in index.ts; frontend uses static Cloudinary URLs only.
+/*
 import express from 'express';
 import {deleteFile} from '../controllers/deleteFileController.js';
 import {replaceImage} from '../controllers/updateImage.js';
@@ -14,3 +16,8 @@ router.post('/addPDF', addPDF);
 router.post('/replacePDF', replacePDF);
 
 export default router;
+*/
+
+import express from 'express';
+
+export default express.Router();

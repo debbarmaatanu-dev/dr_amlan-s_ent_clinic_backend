@@ -1,5 +1,5 @@
 import express from 'express';
-import admin from 'firebase-admin';
+import {FieldValue} from 'firebase-admin/firestore';
 import {logger} from '../utils/logger.js';
 import {confirmBooking, cancelBooking} from '../services/bookingService.js';
 import {
@@ -8,6 +8,7 @@ import {
   CallbackData,
 } from '@phonepe-pg/pg-sdk-node';
 import {validateWebhookCallback} from '../services/phonePeService.js';
+import {db} from '../services/firebaseAdmin.js';
 
 // Extend Express Request type for PhonePe auth data
 declare module 'express-serve-static-core' {
@@ -20,7 +21,6 @@ declare module 'express-serve-static-core' {
 }
 
 const router = express.Router();
-const db = admin.firestore();
 
 /**
  * PhonePe Webhook Authentication Middleware (SDK-based)
@@ -230,7 +230,7 @@ router.post('/webhook', authenticateWebhook, async (req, res) => {
       paymentMethod:
         (webhookData as Record<string, unknown>).paymentMethod || 'unknown',
       amount: (webhookData as Record<string, unknown>).amount || 0,
-      timestamp: admin.firestore.FieldValue.serverTimestamp(),
+      timestamp: FieldValue.serverTimestamp(),
       processed: false,
       // Skip IP and user agent in production to save space
       ...(isProduction
@@ -314,7 +314,7 @@ router.post('/webhook', authenticateWebhook, async (req, res) => {
     // Mark webhook as processed
     await webhookLogRef.update({
       processed: true,
-      processedAt: admin.firestore.FieldValue.serverTimestamp(),
+      processedAt: FieldValue.serverTimestamp(),
     });
 
     // Respond to PhonePe (must respond within 10 seconds)
@@ -456,7 +456,7 @@ async function handleRefundCompleted(
       const refundDoc = refundQuery.docs[0];
       await refundDoc.ref.update({
         status: 'completed',
-        completedAt: admin.firestore.FieldValue.serverTimestamp(),
+        completedAt: FieldValue.serverTimestamp(),
         refundId: refundId || refundDoc.data().refundId,
         webhookData: webhookData,
       });
@@ -508,7 +508,7 @@ async function handleRefundFailed(
       const refundDoc = refundQuery.docs[0];
       await refundDoc.ref.update({
         status: 'failed',
-        failedAt: admin.firestore.FieldValue.serverTimestamp(),
+        failedAt: FieldValue.serverTimestamp(),
         errorCode: errorCode,
         detailedErrorCode: detailedErrorCode,
         webhookData: webhookData,

@@ -1,5 +1,6 @@
+// Legacy CMS API — routes commented out in protected.ts (not used by frontend).
 import {Request, Response} from 'express';
-import admin from 'firebase-admin';
+import {db} from '../services/firebaseAdmin.js';
 
 export const deleteDocument = async (
   req: Request,
@@ -16,8 +17,6 @@ export const deleteDocument = async (
   }
 
   try {
-    const db = admin.firestore();
-
     const querySnapshot = await db
       .collection(collectionName)
       .where('id', '==', docId)

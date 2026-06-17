@@ -1,36 +1,38 @@
 import express, {Request, Response} from 'express';
-import admin from 'firebase-admin';
-import {authenticateFirebaseToken} from '../middleware/auth.js';
-import {updateText} from '../controllers/updateText.js';
-import {addDocument} from '../controllers/addDocument.js';
-import {updateDocument} from '../controllers/updateDocument.js';
-import {deleteDocument} from '../controllers/deleteDocument.js';
+import {FieldValue} from 'firebase-admin/firestore';
+import {authenticateFirebaseToken, requireAdmin} from '../middleware/auth.js';
+// Legacy CMS admin API — not used by current frontend
+// import {updateText} from '../controllers/updateText.js';
+// import {addDocument} from '../controllers/addDocument.js';
+// import {updateDocument} from '../controllers/updateDocument.js';
+// import {deleteDocument} from '../controllers/deleteDocument.js';
 import type {BookingData, ClinicControl} from '../types/types.js';
+import {db} from '../services/firebaseAdmin.js';
 import {logger} from '../utils/logger.js';
-
-const db = admin.firestore();
 
 const router = express.Router();
 
-router.get(
-  '/',
-  authenticateFirebaseToken,
-  (req: Request, res: Response): void => {
-    if (!req.user) {
-      res.status(401).json({message: 'Unauthorized'});
-      return;
-    }
-    res.json({
-      message: `Hello ${req.user.name}, you're authenticated!`,
-      success: true,
-    });
-  },
-);
+// Legacy auth smoke test — not used by frontend
+// router.get(
+//   '/',
+//   authenticateFirebaseToken,
+//   (req: Request, res: Response): void => {
+//     if (!req.user) {
+//       res.status(401).json({message: 'Unauthorized'});
+//       return;
+//     }
+//     res.json({
+//       message: `Hello ${req.user.name}, you're authenticated!`,
+//       success: true,
+//     });
+//   },
+// );
 
-router.post('/updateText', authenticateFirebaseToken, updateText);
-router.post('/addDocument', authenticateFirebaseToken, addDocument);
-router.post('/updateDocument', authenticateFirebaseToken, updateDocument);
-router.post('/deleteDocument', authenticateFirebaseToken, deleteDocument);
+// Legacy CMS admin API — not used by current frontend
+// router.post('/updateText', authenticateFirebaseToken, updateText);
+// router.post('/addDocument', authenticateFirebaseToken, addDocument);
+// router.post('/updateDocument', authenticateFirebaseToken, updateDocument);
+// router.post('/deleteDocument', authenticateFirebaseToken, deleteDocument);
 
 /**
  * Format date from YYYY-MM-DD to DD-MM-YYYY for Firestore document ID
@@ -47,28 +49,9 @@ const formatDateToDocId = (dateString: string): string => {
 router.get(
   '/bookings/:date',
   authenticateFirebaseToken,
+  requireAdmin,
   async (req: Request, res: Response) => {
     try {
-      if (!req.user) {
-        return res.status(401).json({
-          success: false,
-          error: 'Authentication required',
-        });
-      }
-
-      // Check if user is admin
-      const allowedAdminEmails = [
-        process.env.ADMIN_EMAIL1,
-        process.env.ADMIN_EMAIL2,
-      ].filter(Boolean);
-
-      if (!allowedAdminEmails.includes(req.user.email)) {
-        return res.status(403).json({
-          success: false,
-          error: 'Admin access required',
-        });
-      }
-
       const date = Array.isArray(req.params.date)
         ? req.params.date[0]
         : req.params.date;
@@ -191,28 +174,9 @@ router.get(
 router.get(
   '/clinic-status',
   authenticateFirebaseToken,
-  async (req: Request, res: Response) => {
+  requireAdmin,
+  async (_req: Request, res: Response) => {
     try {
-      if (!req.user) {
-        return res.status(401).json({
-          success: false,
-          error: 'Authentication required',
-        });
-      }
-
-      // Check if user is admin
-      const allowedAdminEmails = [
-        process.env.ADMIN_EMAIL1,
-        process.env.ADMIN_EMAIL2,
-      ].filter(Boolean);
-
-      if (!allowedAdminEmails.includes(req.user.email)) {
-        return res.status(403).json({
-          success: false,
-          error: 'Admin access required',
-        });
-      }
-
       // Get clinic control status
       const controlRef = db.collection('clinic_control').doc('status');
       const controlSnap = await controlRef.get();
@@ -268,28 +232,9 @@ router.get(
 router.post(
   '/control-clinic',
   authenticateFirebaseToken,
+  requireAdmin,
   async (req: Request, res: Response) => {
     try {
-      if (!req.user) {
-        return res.status(401).json({
-          success: false,
-          error: 'Authentication required',
-        });
-      }
-
-      // Check if user is admin
-      const allowedAdminEmails = [
-        process.env.ADMIN_EMAIL1,
-        process.env.ADMIN_EMAIL2,
-      ].filter(Boolean);
-
-      if (!allowedAdminEmails.includes(req.user.email)) {
-        return res.status(403).json({
-          success: false,
-          error: 'Admin access required',
-        });
-      }
-
       const {closedFrom, closedTill} = req.body;
 
       // Validate required fields
@@ -330,14 +275,14 @@ router.post(
         isManuallyOverridden: true,
         closedFrom,
         closedTill: closedTill || undefined,
-        createdAt: admin.firestore.FieldValue.serverTimestamp(),
-        updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+        createdAt: FieldValue.serverTimestamp(),
+        updatedAt: FieldValue.serverTimestamp(),
       };
 
       await controlRef.set(controlData);
 
       logger.log(
-        `[ADMIN] Clinic closed by ${req.user.email} from ${closedFrom} to ${closedTill || 'indefinite'}`,
+        `[ADMIN] Clinic closed by ${req.user!.email} from ${closedFrom} to ${closedTill || 'indefinite'}`,
       );
 
       return res.json({
@@ -354,61 +299,42 @@ router.post(
   },
 );
 
-/**
- * GET /api/protected/failed-refunds
- * Get failed refunds that need manual processing (Admin only)
- */
-router.get(
-  '/failed-refunds',
-  authenticateFirebaseToken,
-  async (req: Request, res: Response) => {
-    try {
-      if (!req.user) {
-        return res.status(401).json({
-          success: false,
-          error: 'Authentication required',
-        });
-      }
-
-      // Check if user is admin
-      const allowedAdminEmails = [
-        process.env.ADMIN_EMAIL1,
-        process.env.ADMIN_EMAIL2,
-      ].filter(Boolean);
-
-      if (!allowedAdminEmails.includes(req.user.email)) {
-        return res.status(403).json({
-          success: false,
-          error: 'Admin access required',
-        });
-      }
-
-      // Get failed refunds
-      const failedRefundsRef = db.collection('failed_refunds');
-      const snapshot = await failedRefundsRef
-        .where('status', '==', 'manual_required')
-        .orderBy('createdAt', 'desc')
-        .get();
-
-      const failedRefunds = snapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data(),
-      }));
-
-      return res.json({
-        success: true,
-        failedRefunds,
-        count: failedRefunds.length,
-      });
-    } catch (error) {
-      console.error('Error fetching failed refunds:', error);
-      return res.status(500).json({
-        success: false,
-        error: 'Internal server error',
-      });
-    }
-  },
-);
+// Legacy admin API — not used by current frontend
+// /**
+//  * GET /api/protected/failed-refunds
+//  * Get failed refunds that need manual processing (Admin only)
+//  */
+// router.get(
+//   '/failed-refunds',
+//   authenticateFirebaseToken,
+//   requireAdmin,
+//   async (_req: Request, res: Response) => {
+//     try {
+//       const failedRefundsRef = db.collection('failed_refunds');
+//       const snapshot = await failedRefundsRef
+//         .where('status', '==', 'manual_required')
+//         .orderBy('createdAt', 'desc')
+//         .get();
+//
+//       const failedRefunds = snapshot.docs.map(doc => ({
+//         id: doc.id,
+//         ...doc.data(),
+//       }));
+//
+//       return res.json({
+//         success: true,
+//         failedRefunds,
+//         count: failedRefunds.length,
+//       });
+//     } catch (error) {
+//       console.error('Error fetching failed refunds:', error);
+//       return res.status(500).json({
+//         success: false,
+//         error: 'Internal server error',
+//       });
+//     }
+//   },
+// );
 
 /**
  * POST /api/protected/turn-on-clinic
@@ -417,39 +343,20 @@ router.get(
 router.post(
   '/turn-on-clinic',
   authenticateFirebaseToken,
+  requireAdmin,
   async (req: Request, res: Response) => {
     try {
-      if (!req.user) {
-        return res.status(401).json({
-          success: false,
-          error: 'Authentication required',
-        });
-      }
-
-      // Check if user is admin
-      const allowedAdminEmails = [
-        process.env.ADMIN_EMAIL1,
-        process.env.ADMIN_EMAIL2,
-      ].filter(Boolean);
-
-      if (!allowedAdminEmails.includes(req.user.email)) {
-        return res.status(403).json({
-          success: false,
-          error: 'Admin access required',
-        });
-      }
-
       // Remove clinic control (turn on)
       const controlRef = db.collection('clinic_control').doc('status');
       const controlData: ClinicControl = {
         isManuallyOverridden: false,
-        createdAt: admin.firestore.FieldValue.serverTimestamp(),
-        updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+        createdAt: FieldValue.serverTimestamp(),
+        updatedAt: FieldValue.serverTimestamp(),
       };
 
       await controlRef.set(controlData);
 
-      logger.log(`[ADMIN] Clinic turned on by ${req.user.email}`);
+      logger.log(`[ADMIN] Clinic turned on by ${req.user!.email}`);
 
       return res.json({
         success: true,

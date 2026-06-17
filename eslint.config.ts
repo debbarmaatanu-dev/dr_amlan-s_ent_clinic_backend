@@ -2,7 +2,7 @@ import js from '@eslint/js';
 import globals from 'globals';
 import prettier from 'eslint-plugin-prettier';
 import eslintConfigPrettier from 'eslint-config-prettier';
-import eslintPluginImport from 'eslint-plugin-import';
+import {importX} from 'eslint-plugin-import-x';
 import tseslint from 'typescript-eslint';
 
 export default tseslint.config(
@@ -14,6 +14,8 @@ export default tseslint.config(
     extends: [
       js.configs.recommended,
       ...tseslint.configs.recommended,
+      importX.flatConfigs.recommended,
+      importX.flatConfigs.typescript,
       eslintConfigPrettier,
     ],
     languageOptions: {
@@ -24,7 +26,7 @@ export default tseslint.config(
       },
     },
     settings: {
-      'import/resolver': {
+      'import-x/resolver': {
         typescript: {
           alwaysTryTypes: true,
           project: './tsconfig.json',
@@ -36,12 +38,14 @@ export default tseslint.config(
     },
     plugins: {
       prettier,
-      import: eslintPluginImport,
+      'import-x': importX,
     },
     rules: {
       'prettier/prettier': 'error',
       'no-console': 'off',
-      'import/no-unresolved': 'error',
+      'import-x/no-unresolved': 'error',
+      'import-x/no-named-as-default': 'off',
+      'import-x/no-named-as-default-member': 'off',
       '@typescript-eslint/no-unused-vars': ['warn', {argsIgnorePattern: '^_'}],
       '@typescript-eslint/no-require-imports': 'off',
     },

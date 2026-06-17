@@ -1,5 +1,5 @@
 import express from 'express';
-import admin from 'firebase-admin';
+import {FieldValue} from 'firebase-admin/firestore';
 import {
   createPaymentOrder,
   checkPaymentStatus,
@@ -11,10 +11,11 @@ import {
   cancelBooking,
 } from '../services/bookingService.js';
 import {isClinicOpen} from '../services/clinicService.js';
+import {db} from '../services/firebaseAdmin.js';
+import {validateBookingDate} from '../utils/clinicSchedule.js';
 import {logger} from '../utils/logger.js';
 
 const router = express.Router();
-const db = admin.firestore();
 
 /**
  * Format date from YYYY-MM-DD to DD-MM-YYYY
@@ -89,31 +90,12 @@ router.post('/create-order', async (req, res) => {
       });
     }
 
-    // Validate date and time constraints
-    const selectedDate = new Date(date + 'T00:00:00');
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-
-    // Check if date is Sunday
-    if (selectedDate.getDay() === 0) {
+    // Validate schedule (Wednesdays, 2nd/4th Sat, Sundays, cutoffs, advance window)
+    const dateValidation = validateBookingDate(date);
+    if (!dateValidation.isValid) {
       return res.status(400).json({
         success: false,
-        error: 'Clinic is closed on Sundays',
-      });
-    }
-
-    // Check if booking for today after 7 PM
-    const now = new Date();
-    const currentHour = now.getHours();
-    const isToday =
-      selectedDate.getDate() === now.getDate() &&
-      selectedDate.getMonth() === now.getMonth() &&
-      selectedDate.getFullYear() === now.getFullYear();
-
-    if (isToday && currentHour >= 19) {
-      return res.status(400).json({
-        success: false,
-        error: 'Bookings for today are closed after 7 PM',
+        error: dateValidation.error || 'Invalid appointment date',
       });
     }
 
@@ -375,7 +357,7 @@ router.get('/status-by-transaction/:transactionId', async (req, res) => {
                 reason: 'Clinic closed during payment - auto refund failed',
                 error: refundResult.error,
                 pendingData,
-                createdAt: admin.firestore.FieldValue.serverTimestamp(),
+                createdAt: FieldValue.serverTimestamp(),
                 status: 'manual_required',
               });
 

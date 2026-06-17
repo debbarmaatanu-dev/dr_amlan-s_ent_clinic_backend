@@ -1,7 +1,5 @@
-import admin from 'firebase-admin';
 import type {ClinicControl} from '../types/types.js';
-
-const db = admin.firestore();
+import {db} from './firebaseAdmin.js';
 
 /**
  * Check if clinic bookings are currently allowed

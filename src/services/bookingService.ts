@@ -1,11 +1,10 @@
-import admin from 'firebase-admin';
+import {FieldValue, type Transaction} from 'firebase-admin/firestore';
 import type {
   BookingData,
   PendingBooking,
   BookingCreationData,
 } from '../types/types.js';
-
-const db = admin.firestore();
+import {db} from './firebaseAdmin.js';
 
 /**
  * Format date from YYYY-MM-DD to DD-MM-YYYY
@@ -32,7 +31,7 @@ export const createPendingBooking = async (
       phone: bookingData.phone,
       amount: bookingData.amount,
       status: 'pending',
-      createdAt: admin.firestore.FieldValue.serverTimestamp(),
+      createdAt: FieldValue.serverTimestamp(),
     };
 
     await db.collection('pending_bookings').doc(orderId).set(pendingBooking);
@@ -72,7 +71,7 @@ export const confirmBooking = async (
     pendingData = pendingBookingSnap.data() as PendingBooking;
 
     // Create actual booking using transaction
-    const result = await db.runTransaction(async transaction => {
+    const result = await db.runTransaction(async (transaction: Transaction) => {
       const docId = formatDateToDocId(pendingData.date);
       const docRef = db.collection('appointment_bookings').doc(docId);
       const docSnap = await transaction.get(docRef);
@@ -140,7 +139,7 @@ export const confirmBooking = async (
       status: 'completed',
       paymentId: paymentId,
       slotNumber: result.slotNumber,
-      completedAt: admin.firestore.FieldValue.serverTimestamp(),
+      completedAt: FieldValue.serverTimestamp(),
     });
 
     return {
@@ -169,7 +168,7 @@ export const cancelBooking = async (orderId: string) => {
   try {
     await db.collection('pending_bookings').doc(orderId).update({
       status: 'failed',
-      failedAt: admin.firestore.FieldValue.serverTimestamp(),
+      failedAt: FieldValue.serverTimestamp(),
     });
 
     return {success: true};

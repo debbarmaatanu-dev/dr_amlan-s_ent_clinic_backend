@@ -2,7 +2,8 @@ import express from 'express';
 import helmet from 'helmet';
 import dotenv from 'dotenv';
 import protectedRoutes from './routes/protected.js';
-import cloudinaryRoutes from './routes/cloudinaryRoutes.js';
+// Legacy upload API — not used by frontend (static Cloudinary URLs only)
+// import cloudinaryRoutes from './routes/cloudinaryRoutes.js';
 import paymentRoutes from './routes/paymentRoutes.js';
 import appointmentRoutes from './routes/appointmentRoutes.js';
 import webhookRoutes from './routes/webhookRoutes.js';
@@ -143,13 +144,14 @@ app.use(
   generalRateLimiter,
   protectedRoutes,
 );
-app.use(
-  '/api/cloudinary',
-  validateRequestSize(5120), // 5MB max
-  express.json({limit: '5mb'}),
-  generalRateLimiter,
-  cloudinaryRoutes,
-);
+// Legacy upload API — not used by frontend
+// app.use(
+//   '/api/cloudinary',
+//   validateRequestSize(5120), // 5MB max
+//   express.json({limit: '5mb'}),
+//   generalRateLimiter,
+//   cloudinaryRoutes,
+// );
 app.use(
   '/api/payment',
   validateRequestSize(2), // 2KB max (increased from 1KB for payment data)

@@ -2,8 +2,7 @@ import {Request, Response, NextFunction} from 'express';
 import {logger} from '../utils/logger.js';
 
 /** Tells search engines not to index any API response (defense in depth with robots.txt). */
-export const SEARCH_ENGINE_BLOCK_HEADER =
-  'noindex, nofollow, noarchive, nosnippet';
+const SEARCH_ENGINE_BLOCK_HEADER = 'noindex, nofollow, noarchive, nosnippet';
 
 export const ROBOTS_TXT_BODY = ['User-agent: *', 'Disallow: /', ''].join('\n');
 
